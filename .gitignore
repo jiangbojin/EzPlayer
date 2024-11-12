@@ -1,0 +1,27 @@
+# Visual Studio files
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.qtvscr
+
+# Build and log files
+build/
+*.log
+
+# Qt-related files
+*.qmake.stash
+ui_*.h
+
+# Other files
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.suo
+*.user
+*.opendb
+*.db
+*.db-shm
+*.db-wal

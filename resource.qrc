@@ -1,0 +1,28 @@
+<RCC>
+    <qresource prefix="/logo"/>
+    <qresource prefix="/">
+        <file>res/qss/homewindow.css</file>
+        <file>res/array_down.png</file>
+        <file>res/checkbox_checked.png</file>
+        <file>res/checkbox_checked_disable.png</file>
+        <file>res/checkbox_parcial.png</file>
+        <file>res/checkbox_parcial_disable.png</file>
+        <file>res/checkbox_unchecked.png</file>
+        <file>res/checkbox_unchecked_disable.png</file>
+        <file>res/radio_normal.png</file>
+        <file>res/radio_selected.png</file>
+        <file>res/radiobutton_checked.png</file>
+        <file>res/radiobutton_checked_disable.png</file>
+        <file>res/radiobutton_unchecked.png</file>
+        <file>res/audio_logo.png</file>
+        <file>res/audio_muted.png</file>
+        <file>res/play.png</file>
+        <file>res/pause.png</file>
+        <file>res/stop.png</file>
+        <file>res/forwardFastBtn.png</file>
+        <file>res/backFastBtn.png</file>
+        <file>res/screenBtn.png</file>
+        <file>res/prevBtn.png</file>
+        <file>res/nextBtn.png</file>
+    </qresource>
+</RCC>
