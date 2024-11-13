@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>ezy播放器</string>
+   <string>Ez播放器</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QWidget" name="ctrlBar" native="true">
