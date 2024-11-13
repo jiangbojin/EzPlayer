@@ -47,44 +47,50 @@ extern "C" {
 /* If a frame duration is longer than this, it will not be duplicated to compensate AV sync */
 #define AV_SYNC_FRAMEDUP_THRESHOLD 0.1
 /* no AV correction is done if too big error */
-#define AV_NOSYNC_THRESHOLD 1.0
+#define AV_NOSYNC_THRESHOLD 10.0
 
 
+// FFTrackCacheStatistic 结构体
+// 用于存储某个轨道的缓存统计信息
 typedef struct FFTrackCacheStatistic
 {
-    int64_t duration;
-    int64_t bytes;
-    int64_t packets;
+    int64_t duration; // 缓存数据的时长 单位毫秒ms
+    int64_t bytes;    // 缓存数据的字节数
+    int64_t packets;  // 缓存数据的数据包数
 } FFTrackCacheStatistic;
 
-
+// FFStatistic 结构体
+// 用于存储媒体播放的各种统计信息
 typedef struct FFStatistic
 {
-    int64_t vdec_type;
+    int64_t vdec_type; // 视频解码器类型
 
-    float vfps;
-    float vdps;
-    float avdelay;
-    float avdiff;
-    int64_t bit_rate;
+    float vfps;        // 视频帧率
+    float vdps;        // 视频显示帧率
+    float avdelay;     // 音视频延迟
+    float avdiff;      // 音视频差异
+    int64_t bit_rate;  // 码率
 
+    // 视频缓存统计信息
     FFTrackCacheStatistic video_cache;
+
+    // 音频缓存统计信息
     FFTrackCacheStatistic audio_cache;
 
-    int64_t buf_backwards;
-    int64_t buf_forwards;
-    int64_t buf_capacity;
-    SDL_SpeedSampler2 tcp_read_sampler;
-    int64_t latest_seek_load_duration;
-    int64_t byte_count;
-    int64_t cache_physical_pos;
-    int64_t cache_file_forwards;
-    int64_t cache_file_pos;
-    int64_t cache_count_bytes;
-    int64_t logical_file_size;
-    int drop_frame_count;
-    int decode_frame_count;
-    float drop_frame_rate;
+    int64_t buf_backwards; // 后退缓冲区大小
+    int64_t buf_forwards;  // 前进缓冲区大小
+    int64_t buf_capacity;  // 缓冲区容量
+    SDL_SpeedSampler2 tcp_read_sampler; // TCP 读取速度采样器
+    int64_t latest_seek_load_duration;  // 最近一次 seek 操作的加载时长
+    int64_t byte_count;     // 总字节数
+    int64_t cache_physical_pos; // 缓存的物理位置
+    int64_t cache_file_forwards; // 缓存文件的前进位置
+    int64_t cache_file_pos;   // 缓存文件的位置
+    int64_t cache_count_bytes; // 缓存的字节数
+    int64_t logical_file_size; // 逻辑文件大小
+    int drop_frame_count;   // 丢帧数
+    int decode_frame_count; // 解码帧数
+    float drop_frame_rate;  // 丢帧率
 } FFStatistic;
 
 enum RET_CODE
@@ -120,6 +126,10 @@ typedef struct PacketQueue {
     int		serial;         // 播放序列号，和MyAVPacketList的serial作用相同，但改变的时序稍微有点不同
     SDL_mutex	*mutex;     // 用于维持PacketQueue的多线程安全(SDL_mutex可以按pthread_mutex_t理解）
     SDL_cond	*cond;      // 用于读、写线程相互通知(SDL_cond可以按pthread_cond_t理解)
+
+    //阈值单位ms
+    int duration_cache_max = 4000;
+    int duration_cache_shake =1000;
 } PacketQueue;
 
 #define VIDEO_PICTURE_QUEUE_SIZE	3       // 图像帧缓存数量

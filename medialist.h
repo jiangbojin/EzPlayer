@@ -14,6 +14,7 @@ public:
     ~MediaList();
     bool Init();
 protected:
+     //右键菜单调用
     void contextMenuEvent(QContextMenuEvent* event);
 public:
     void AddFile(); //添加文件

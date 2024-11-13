@@ -9,7 +9,8 @@ int main(int argc, char *argv[])
 {
 
 //    el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime %level %func(L%line) %msg");
-
+    // 设置全局日志级别为 FATAL
+    el::Loggers::setLoggingLevel(el::Level::Trace);
     el::Configurations conf;
     conf.setToDefault();
     //设置日志输出格式,包括日期时间、日志级别、函数名称、行号和日志信息。

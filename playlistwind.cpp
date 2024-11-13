@@ -46,30 +46,34 @@ bool PlayListWind::Init()
 
     return true;
 }
-
+///
+/// 读取本机保存的播放文件名单，加入到播放列表中
+/// \return
+///
 bool PlayListWind::InitUi()
 {
     setStyleSheet(GlobalHelper::GetQssStr(":/qss/res/qss/playlist.css"));
     ui->list->clear();
 
     QStringList strListPlaylist;
-    GlobalHelper::GetPlaylist(strListPlaylist);
+    GlobalHelper::GetPlaylist(strListPlaylist);//获取本机保存的播放文件名单
 
     for (QString strVideoFile : strListPlaylist)
     {
         QFileInfo fileInfo(strVideoFile);
-        if (fileInfo.exists())
+        if (fileInfo.exists()) //检查文件是否存在
         {
+            //插入到播放列表
             QListWidgetItem *pItem = new QListWidgetItem(ui->list);
             pItem->setData(Qt::UserRole, QVariant(fileInfo.filePath()));  // 用户数据
-            pItem->setText(QString("%1").arg(fileInfo.fileName()));  // 显示文本
-            pItem->setToolTip(fileInfo.filePath());
+            pItem->setText(QString("%1").arg(fileInfo.fileName()));       // 显示文本
+            pItem->setToolTip(fileInfo.filePath());     //停留提示
             ui->list->addItem(pItem);
         }
     }
     if (strListPlaylist.length() > 0)
     {
-        ui->list->setCurrentRow(0);
+        ui->list->setCurrentRow(0);//将第一个项目设置为当前选中项
     }
 
     //ui->list->addItems(strListPlaylist);
@@ -94,12 +98,12 @@ bool PlayListWind::ConnectSignalSlots()
         }
     }
 
-    return true;
+    return false;
 }
 
 void PlayListWind::on_List_itemDoubleClicked(QListWidgetItem *item)
 {
-    emit SigPlay(item->data(Qt::UserRole).toString());
+    emit SigPlay(item->data(Qt::UserRole).toString()); //投递播放消息
     m_nCurrentPlayListIndex = ui->list->row(item);
     ui->list->setCurrentRow(m_nCurrentPlayListIndex);
 }
@@ -250,5 +254,5 @@ void PlayListWind::dragEnterEvent(QDragEnterEvent *event)
 
 void PlayListWind::on_List_itemSelectionChanged()
 {
-     m_nCurrentPlayListIndex = ui->list->currentIndex().row();      // 获取选中后的新位置。
+    m_nCurrentPlayListIndex = ui->list->currentIndex().row();      // 获取选中后的新位置。
 }

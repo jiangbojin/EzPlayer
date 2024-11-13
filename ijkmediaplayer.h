@@ -72,13 +72,13 @@ public:
     // 获取是否循环播放
     int  ijkmp_get_loop();
     // 读取消息
-    int ijkmp_get_msg(AVMessage *msg, int block);
+    int ijkmp_get_msg(AVMessage *msg, int block,void *is);
     // 设置音量
     void ijkmp_set_playback_volume(int volume);
     // 设置一键静音音量
     void ijkmp_set_audio_muted(bool muted);
-
-
+    //设置最大或最小cache
+    void ijkmp_set_pkt_queue_cache(bool type,int value);
 
 
     void ijkmp_set_playback_rate(float rate);

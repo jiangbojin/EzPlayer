@@ -67,16 +67,19 @@ signals:
     void SigPlay(QString strFile); //< 播放文件
 
 private:
+    //初始化播放列表界面的 UI 元素
     bool InitUi();
+    //检测 Playlist 类内部的所有信号和槽连接都成功建立
     bool ConnectSignalSlots();
 
 private slots:
-
+    //双击播放文件资源事件
     void on_List_itemDoubleClicked(QListWidgetItem *item);
-
+    //单击选中事件
     void on_List_itemSelectionChanged();
 private:
     Ui::PlayListWind *ui;
+    //选中文件的index
     int m_nCurrentPlayListIndex = 0;
 };
 

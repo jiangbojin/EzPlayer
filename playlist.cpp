@@ -34,6 +34,7 @@ bool Playlist::Init()
     if (ConnectSignalSlots() == false) {
         return false;
     }
+    //接收拖拽操作，将文件拖放到播放列表中,从而添加新的视频到播放列表
     setAcceptDrops(true);
     return true;
 }

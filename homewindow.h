@@ -17,12 +17,12 @@ class HomeWindow : public QMainWindow , public CommonLooper
     Q_OBJECT
 private:
     Ui::HomeWindow* ui;
+    //消息队列
+    std::shared_ptr<MessageQueue> msg_queue_ = nullptr;
 
     bool is_show_file_list_ = true;     // 是否显示文件列表，默认显示
     std::shared_ptr<IjkMediaPlayer> mp_ = nullptr;
 
-    //消息队列
-    std::shared_ptr<MessageQueue> msg_queue_ = nullptr;
 
 
     //播放相关的信息
@@ -42,8 +42,8 @@ private:
 
     // 缓存统计
     int max_cache_duration_ = 400;  // 默认200ms
-    int network_jitter_duration_ = 10; // 默认100ms
-    float accelerate_speed_factor_ = 4.0; //默认加速是1.2
+    int network_jitter_duration_ = 100; // 默认100ms
+    float accelerate_speed_factor_ = 1.5; //默认加速是1.2
     float normal_speed_factor_ = 1.0;     // 正常播放速度1.0
     bool  is_accelerate_speed_ = false;
 
@@ -102,6 +102,9 @@ private slots:
      // 播放暂停
     void on_playOrPauseBtn_clicked();
     void on_updatePlayOrPause(int state);
+    //缓存阀值
+    void on_updateDurationCacheMax(const QString&);
+    void on_updateDurationCacheMin(const QString&);
     // 停止
     void on_stopBtn_clicked();
     /// @brief 消息处理机制开始点，视频文件播放
@@ -126,10 +129,10 @@ private slots:
     void on_bufDurationBox_currentIndexChanged(int index);
 
     void on_jitterBufBox_currentIndexChanged(int index);
-    //前进和后退
+    //上/下一集播放
     void on_prevBtn_clicked();
     void on_nextBtn_clicked();
-    //上/下一集播放
+    //前进和后退
     void on_forwardFastBtn_clicked();
     void on_backFastBtn_clicked();
 
@@ -154,7 +157,7 @@ private:
     int fastBack(long inrc);
     // 主动获取信息，并更新到ui
     void getTotalDuration();
-
+public:
     // 定时器获取，每秒读取一次时间
     void reqUpdateCurrentPosition();
     void reqUpdateCacheDuration();

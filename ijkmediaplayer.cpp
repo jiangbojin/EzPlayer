@@ -5,12 +5,15 @@
 #include "ffmsg.h"
 #include<messagequeue.h>
 #include<thread>
+#include<homewindow.h>
 
 #include "easylogging++.h"
 std::shared_ptr<FFPlayer> IjkMediaPlayer::Get_ffplayer() const
 {
     return ffplayer_;
 }
+
+
 
 IjkMediaPlayer::IjkMediaPlayer(std::shared_ptr<MessageQueue> msg_queue)
     :msg_queue_(msg_queue){
@@ -151,8 +154,11 @@ long IjkMediaPlayer::ijkmp_get_duration()
  * @param block 阻塞调用方式
  * @return
  */
-int IjkMediaPlayer::ijkmp_get_msg(AVMessage *msg, int block)
+
+int IjkMediaPlayer::ijkmp_get_msg(AVMessage *msg, int block,void* is_)
 {
+
+    HomeWindow* is = (HomeWindow *)is_;
     int pause_ret = 0;
     while (1) {
         int continue_wait_next_msg = 0;
@@ -161,58 +167,75 @@ int IjkMediaPlayer::ijkmp_get_msg(AVMessage *msg, int block)
         if (retval <= 0) {      // -1 abort, 0 没有消息
             return retval;
         }
+
+
         switch (msg->what) {
 
-            case FFP_REQ_START:
-                LOG(INFO) <<  " FFP_REQ_START" ;
-                continue_wait_next_msg = 1;
-                retval = ffplayer_->ffp_start_l();
-                if (retval == 0) {
-                    ijkmp_change_state_l(MP_STATE_STARTED);
-                }
-                break;
-            case FFP_REQ_PAUSE:
-                continue_wait_next_msg = 1;
-                pause_ret = ffplayer_->ffp_pause_l();
-                if(pause_ret == 0) {
-                    //设置为暂停暂停
-                    ijkmp_change_state_l(MP_STATE_PAUSED);  // 暂停后怎么恢复？
-                }
-                break;
+        case FFP_REQ_START:
+            LOG(INFO) <<  " FFP_REQ_START" ;
+            continue_wait_next_msg = 1;
+            retval = ffplayer_->ffp_start_l();
+            if (retval == 0) {
+                ijkmp_change_state_l(MP_STATE_STARTED);
+            }
+            break;
+        case FFP_REQ_PAUSE:
+            continue_wait_next_msg = 1;
+            pause_ret = ffplayer_->ffp_pause_l();
+            if(pause_ret == 0) {
+                //设置为暂停暂停
+                ijkmp_change_state_l(MP_STATE_PAUSED);  // 暂停后怎么恢复？
+            }
+            break;
 
-            case FFP_REQ_SEEK:
-                LOG(INFO) << "ijkmp_get_msg: FFP_REQ_SEEK\n";
-                continue_wait_next_msg = 1;
-                ffplayer_->ffp_seek_to_l(msg->arg1);
-                break;
-            case FFP_REQ_FORWARD:
-                LOG(INFO) << "ijkmp_get_msg: FFP_REQ_FORWARD\n";
-                continue_wait_next_msg = 1;
-                ffplayer_->ffp_forward_to_l(msg->arg1);
-                break;
-            case FFP_REQ_BACK:
-                LOG(INFO) << "ijkmp_get_msg: FFP_REQ_BACK\n";
-                continue_wait_next_msg = 1;
-                ffplayer_->ffp_back_to_l(msg->arg1);
-                break;
-            case FFP_REQ_SCREENSHOT:
-                LOG(INFO) << "ijkmp_get_msg: FFP_REQ_SCREENSHOT: " << (char *)msg->obj ;
-                continue_wait_next_msg = 1;
-                ffplayer_->ffp_screenshot_l((char *)msg->obj);
-                break;
-            case FFP_MSG_PREPARED:
-                LOG(INFO) <<  " FFP_MSG_PREPARED" ;
-                //            ijkmp_change_state_l(MP_STATE_PREPARED);
-                break;
-            case FFP_MSG_SEEK_COMPLETE:
-                LOG(INFO) << "ijkmp_get_msg: FFP_MSG_SEEK_COMPLETE\n";
-                seek_req = 0;
-                seek_msec = 0;
-                break;
-            default:
-                LOG(INFO) <<  " default " << msg->what ;
-                break;
+        case FFP_REQ_SEEK:
+            LOG(INFO) << "ijkmp_get_msg: FFP_REQ_SEEK\n";
+            continue_wait_next_msg = 1;
+            ffplayer_->ffp_seek_to_l(msg->arg1);
+            break;
+        case FFP_REQ_FORWARD:
+            LOG(INFO) << "ijkmp_get_msg: FFP_REQ_FORWARD\n";
+            continue_wait_next_msg = 1;
+            ffplayer_->ffp_forward_to_l(msg->arg1);
+            break;
+        case FFP_REQ_BACK:
+            LOG(INFO) << "ijkmp_get_msg: FFP_REQ_BACK\n";
+            continue_wait_next_msg = 1;
+            ffplayer_->ffp_back_to_l(msg->arg1);
+            break;
+        case FFP_REQ_SCREENSHOT:
+            LOG(INFO) << "ijkmp_get_msg: FFP_REQ_SCREENSHOT: " << (char *)msg->obj ;
+            continue_wait_next_msg = 1;
+            ffplayer_->ffp_screenshot_l((char *)msg->obj);
+            break;
+        case FFP_MSG_PREPARED:
+            LOG(INFO) <<  " FFP_MSG_PREPARED" ;
+            //            ijkmp_change_state_l(MP_STATE_PREPARED);
+            break;
+        case FFP_MSG_SEEK_COMPLETE:
+            LOG(INFO) << "ijkmp_get_msg: FFP_MSG_SEEK_COMPLETE\n";
+            seek_req = 0;
+            seek_msec = 0;
+            break;
+        case FFP_MSG_SPEED_SUB_DOUBLE:
+            ffplayer_->ffp_set_playback_rate(-0.5);
+            break;
+        case FFP_MSG_SPEED_ADD_DOUBLE:
+            ffplayer_->ffp_set_playback_rate(+0.5);
+            break;
+        case FFP_MSG_FRAMEQ_CACHE_SPEED:
+            ffplayer_->pf_playback_rate_changed = 1;
+            ffplayer_->pf_playback_rate=2;
+            break;
+        case FFP_MSG_FRAMEQ_CACHE_REGAIN:
+            ffplayer_->pf_playback_rate_changed = 1;
+            ffplayer_->pf_playback_rate=1;
+            break;
+        default:
+            LOG(INFO) <<  " default " << msg->what ;
+            break;
         }
+
 
         if(continue_wait_next_msg){ //不再传递
             if (msg->obj)
@@ -238,11 +261,16 @@ void IjkMediaPlayer::ijkmp_set_audio_muted(bool muted)
     ffplayer_->audio_muted_ = muted;
 }
 
+void IjkMediaPlayer::ijkmp_set_pkt_queue_cache(bool type, int value)
+{
+    ffplayer_->ffp_set_pkt_queue_cache(type,value);
+}
+
 
 
 void IjkMediaPlayer::ijkmp_set_playback_rate(float rate)
 {
-    ffplayer_->ffp_set_playback_rate(rate);
+    msg_queue_->notify_msg(FFP_MSG_SPEED_ADD_DOUBLE);
 }
 
 float IjkMediaPlayer::ijkmp_get_playback_rate()
@@ -251,15 +279,14 @@ float IjkMediaPlayer::ijkmp_get_playback_rate()
 }
 
 void IjkMediaPlayer::AddVideoRefreshCallback(
-    std::function<int (const Frame *)> callback)
+        std::function<int (const Frame *)> callback)
 {
     ffplayer_->AddVideoRefreshCallback(callback);
 }
 
 int64_t IjkMediaPlayer::ijkmp_get_property_int64(int id, int64_t default_value)
 {
-    ffplayer_->ffp_get_property_int64(id, default_value);
-    return 0;
+    return  ffplayer_->ffp_get_property_int64(id, default_value);
 }
 
 void IjkMediaPlayer::ijkmp_change_state_l(int new_state)

@@ -95,9 +95,13 @@ public:
     bool is_normal_playback_rate();
     int ffp_get_playback_rate_change();
     void ffp_set_playback_rate_change(int change);
-
+    void sync_clock_to_slave(Clock *c, Clock *slave);
     //音量相关
     void ffp_set_playback_volume(int value);
+
+    //frame队列报警机制
+    int frameq_cache_flag = 1; //1 已使用中 0未使用 2 非直播流
+    void ffp_frameq_cache(int value);
 
     //播放完毕相关判断 1. av_read_frame返回eof; 2. audio没有数据可以输出; 3.video没有数据可以输出
     void check_play_finish();   //如果已经结束则通知ui调用停止函数
@@ -129,6 +133,10 @@ public:
 
     int get_master_sync_type();
     double get_master_clock();
+
+    //设置最大pkt缓存
+    void ffp_set_pkt_queue_cache(bool type, int value);
+
     int av_sync_type = AV_SYNC_AUDIO_MASTER;           // 音视频同步类型, 默认audio master
     Clock	audclk;             // 音频时钟
     Clock	vidclk;             // 视频时钟
@@ -180,7 +188,7 @@ public:
     int			audio_buf_index = 0;            // 更新拷贝位置 当前音频帧中已拷入SDL音频缓冲区
     int audio_write_buf_size;
     int audio_volume = 50;   // 音量相关
-    int startup_volume = 50; // 起始音量
+    int startup_volume = 40; // 起始音量
     // seek相关
     int64_t seek_req = 0;
     int64_t seek_rel = 0;

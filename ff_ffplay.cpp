@@ -320,7 +320,7 @@ static int audio_decode_frame(FFPlayer *is)
     if(is->paused) {
         return -1;
     }
-    // 读取一帧数据
+    // 1.读取一帧数据
     do {
         // 若队列头部可读，则由af指向可读帧
         if (!(af = frame_queue_peek_readable(&is->sampq))) {
@@ -328,7 +328,7 @@ static int audio_decode_frame(FFPlayer *is)
         }
         frame_queue_next(&is->sampq);  // 不同序列的出队列
     } while (af->serial != is->audioq.serial); // 这里容易出现af->serial != audioq.serial 一直循环
-    // 根据frame中指定的音频参数获取缓冲区的大小 af->frame->channels * af->frame->nb_samples * 2
+    // 2.根据frame中指定的音频参数获取缓冲区的大小 af->frame->channels * af->frame->nb_samples * 2
     data_size = av_samples_get_buffer_size(NULL, av_frame_get_channels(af->frame),
                                            af->frame->nb_samples,
                                            (enum AVSampleFormat)af->frame->format, 1);
@@ -343,7 +343,8 @@ static int audio_decode_frame(FFPlayer *is)
     // 获取样本数校正值：若同步时钟是音频，则不调整样本数；否则根据同步需要调整样本数
     //    wanted_nb_samples = synchronize_audio(is, af->frame->nb_samples);  // 目前不考虑非音视频同步的是情况
     wanted_nb_samples = af->frame->nb_samples;
-    // audio_tgt是SDL可接受的音频帧数，是audio_open()中取得的参数
+    // 3.重采样
+    //audio_tgt是SDL可接受的音频帧数，是audio_open()中取得的参数
     // 在audio_open()函数中又有"audio_src = audio_tgt""
     // 此处表示：如果frame中的音频参数 == audio_src == audio_tgt，
     // 那音频重采样的过程就免了(因此时swr_ctr是NULL)
@@ -419,11 +420,11 @@ static int audio_decode_frame(FFPlayer *is)
                 swr_free(&is->swr_ctx);
             }
         }
-        // 重采样返回的一帧音频数据大小(以字节为单位)
+        // end 重采样返回的一帧音频数据大小(以字节为单位)
         is->audio_buf = is->audio_buf1;
         resampled_data_size = len2 * is->audio_tgt.channels * av_get_bytes_per_sample(is->audio_tgt.fmt);
     } else {
-        // 未经重采样，则将指针指向frame中的音频数据
+        // end  未经重采样，则将指针指向frame中的音频数据
         is->audio_buf = af->frame->data[0]; // s16交错模式data[0], fltp data[0] data[1]
         resampled_data_size = data_size;
     }
@@ -464,8 +465,8 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
             if (audio_size < 0) {
                 /* if error, just output silence */
                 is->audio_buf = NULL;
-                is->audio_buf_size = SDL_AUDIO_MIN_BUFFER_SIZE / is->audio_tgt.frame_size
-                        * is->audio_tgt.frame_size;
+                is->audio_buf_size = SDL_AUDIO_MIN_BUFFER_SIZE
+                        / is->audio_tgt.frame_size * is->audio_tgt.frame_size;
                 is->audio_no_data  = 1;      // 没有数据可以读取
                 if(is->eof) {
                     // 如果文件以及读取完毕，此时应该判断是否还有数据可以读取，如果没有就该发送通知ui停止播放
@@ -492,6 +493,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
                 sonicSetPitch(is->audio_speed_convert, 1.0);
                 sonicSetRate(is->audio_speed_convert, 1.0);
             }
+            //2.1变速后的重采样
             if(!is->is_normal_playback_rate() && is->audio_buf) {
                 // 重新计算采样点 总字节/通道*采样点数
                 int actual_out_samples = is->audio_buf_size /
@@ -537,6 +539,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
                     is->audio_buf_size = out_size;
                     //                    LOG(INFO) << "mdy audio_buf_size: " << audio_buf_size;
                     is->audio_buf_index = 0;
+
                 }
             }
         }
@@ -563,7 +566,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
         is->audio_buf_index += len1;
     }
     is->audio_write_buf_size = is->audio_buf_size - is->audio_buf_index;
-    /* Let's assume the audio driver that is used by SDL has two periods. */
+    /* 更新音频pts */
     if (!std::isnan(is->audio_clock)) {
         //   新时间点 = 原始时间点/播放速率  比如当播放速率位是0.5 则新时间点就要延迟 audio_clock变大 反之2.0  audio_clock变小
         double audio_clock = is->audio_clock / is->ffp_get_playback_rate();
@@ -571,6 +574,8 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
                      audio_clock  - (double)(2 * is->audio_hw_buf_size + is->audio_write_buf_size) / is->audio_tgt.bytes_per_sec,
                      is->audio_clock_serial,
                      is->audio_callback_time / 1000000.0);
+        set_clock(&is->vidclk,get_clock(&is->audclk),is->audclk.serial);
+        //is->sync_clock_to_slave( &is->vidclk,&is->audclk);
     }
 }
 
@@ -595,7 +600,7 @@ int FFPlayer::audio_open(int64_t wanted_channel_layout, int wanted_nb_channels, 
         LOG(ERROR) << "Failed to open audio device, err: " <<  SDL_GetError();
         return -1;
     }
-
+    CoInitialize(NULL);
     // wanted_spec是期望的参数，spec是实际的参数，wanted_spec和spec都是SDL中的结构。
     // 此处audio_hw_params是FFmpeg中的参数，输出参数供上级函数使用
     // audio_hw_params保存的参数，就是在做重采样的时候要转成的格式。
@@ -640,7 +645,10 @@ long FFPlayer::ffp_get_duration_l()
     return (long)duration;
 }
 
-// 当前播放的位置
+///
+/// 获取当前播放的位置(以毫秒为单位)的
+/// \return
+///
 long FFPlayer::ffp_get_current_position_l()
 {
     if(!ic) {
@@ -651,18 +659,21 @@ long FFPlayer::ffp_get_current_position_l()
     if (start_time > 0 && start_time != AV_NOPTS_VALUE) {
         start_diff = fftime_to_milliseconds(start_time);    // 返回只需ms这个级别的
     }
+    //pos原理：起始点时钟和起始时钟取差值
     int64_t pos = 0;
     double pos_clock = get_master_clock();  // 获取当前时钟
     if (std::isnan(pos_clock)) {
         pos = fftime_to_milliseconds(seek_pos);
     } else {
-        pos = pos_clock * 1000;     //转成msg
+        pos = pos_clock * 1000;     //转成ms
     }
     if (pos < 0 || pos < start_diff) {
         return 0;
     }
     int64_t adjust_pos = pos - start_diff;
-    return (long)adjust_pos * pf_playback_rate; // 变速的系数
+
+    //LOG(INFO)<<"adjust_pos"<<adjust_pos;
+    return (long)adjust_pos* pf_playback_rate; // 变速的系数
 }
 
 // 暂停的请求
@@ -736,13 +747,13 @@ int FFPlayer::ffp_seek_to_l(long msec)
 
 int FFPlayer::ffp_forward_to_l(long incr)
 {
-    ffp_forward_or_back_to_l(incr);
+    ffp_forward_or_back_to_l(incr * pf_playback_rate);
     return 0;
 }
 
 int FFPlayer::ffp_back_to_l(long incr)
 {
-    ffp_forward_or_back_to_l(incr);
+    ffp_forward_or_back_to_l(incr * pf_playback_rate);
     return 0;
 }
 /// @brief 
@@ -776,7 +787,7 @@ int FFPlayer::ffp_forward_or_back_to_l(long incr)
         stream_seek(pos, incr, 1);
     } else {//按时间seek 最终也是以字节为单位的
         pos = get_master_clock();       // 单位是秒
-        if (std::isnan(pos)) {
+        if (!std::isnan(pos)) {
             pos = (double)seek_pos / AV_TIME_BASE;
         }
         pos += incr;   // 单位转成秒
@@ -849,7 +860,10 @@ int FFPlayer::get_target_channels()
 
 void FFPlayer::ffp_set_playback_rate(float rate)
 {
-    pf_playback_rate = rate;
+    pf_playback_rate += rate;
+    if(pf_playback_rate > 2 || rate > 2 )
+        pf_playback_rate=0.5;
+
     pf_playback_rate_changed = 1; //设置播放速率变化标志位
 }
 
@@ -876,6 +890,22 @@ void FFPlayer::ffp_set_playback_rate_change(int change)
 {
     pf_playback_rate_changed = change;
 }
+/// @brief 从时钟的pts和serial对主时钟 对时。
+/// @param c ext
+/// @param slave
+void FFPlayer::sync_clock_to_slave(Clock *c, Clock *slave)
+{
+    double clock = get_clock(c);
+    double slave_clock = get_clock(slave);
+    //
+    if (!isnan(slave_clock) && (isnan(clock) || fabs(clock - slave_clock) > AV_NOSYNC_THRESHOLD))//范围超过1.0 重新设置
+    {
+        LOG(ERROR)<<"CLOCK"<<clock<<" slvae lock"<< slave_clock;
+        set_clock(c, slave_clock, slave->serial);
+    }
+
+
+}
 /**
  *  ffmpeg层设置音量
  * @param value
@@ -887,6 +917,40 @@ void FFPlayer::ffp_set_playback_volume(int value)
     value = av_clip(SDL_MIX_MAXVOLUME *  value / 100, 0, SDL_MIX_MAXVOLUME);
     audio_volume = value;
     LOG(INFO) << "audio_volume: " << audio_volume  ;
+}
+
+void FFPlayer::ffp_frameq_cache(int value)
+{
+    if(frameq_cache_flag == 2)
+        return;
+    //超过 max + shake
+    if(frameq_cache_flag && (audioq.duration_cache_max + videoq.duration_cache_shake < stat.audio_cache.duration
+        || videoq.duration_cache_max + videoq.duration_cache_shake < stat.video_cache.duration )
+            ){
+        msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_SPEED);
+        if(frameq_cache_flag)
+            frameq_cache_flag=0;
+
+
+
+    }else if(!frameq_cache_flag && (audioq.duration_cache_max - videoq.duration_cache_shake > stat.audio_cache.duration
+              || videoq.duration_cache_max - videoq.duration_cache_shake > stat.video_cache.duration )
+             ){ //低于max - shake
+        //投递恢复
+        msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_REGAIN);
+        frameq_cache_flag=1;
+
+    }
+
+
+    /*LOG(INFO)<<"AUDIOQ dura"<< stat.audio_cache.duration
+            <<"max a"<< audioq.duration_cache_max
+           <<"shake a"<< audioq.duration_cache_shake
+          <<"video dura" << stat.video_cache.duration
+         <<"max a"<< videoq.duration_cache_max
+        <<"shakea"<< videoq.duration_cache_shake
+       <<"flag" << frameq_cache_flag;*/
+
 }
 
 void FFPlayer::check_play_finish()
@@ -920,6 +984,7 @@ int64_t FFPlayer::ffp_get_property_int64(int id, int64_t default_value)
 {
     switch (id) {
     case FFP_PROP_INT64_AUDIO_CACHED_DURATION:
+
         return  stat.audio_cache.duration;
     case FFP_PROP_INT64_VIDEO_CACHED_DURATION:
         return  stat.video_cache.duration;
@@ -927,6 +992,12 @@ int64_t FFPlayer::ffp_get_property_int64(int id, int64_t default_value)
         return default_value;
     }
 }
+///
+/// 获取包数量和byte以及cache时长
+/// \param st
+/// \param q
+/// \param cache
+///
 void FFPlayer::ffp_track_statistic_l(AVStream * st, PacketQueue * q, FFTrackCacheStatistic * cache)
 {
     if (q) {
@@ -1205,8 +1276,8 @@ double FFPlayer::compute_target_delay(double delay)
         sync_threshold = FFMAX(AV_SYNC_THRESHOLD_MIN, FFMIN(AV_SYNC_THRESHOLD_MAX, delay));
         if (! std::isnan(diff) && fabs(diff) <  max_frame_duration) {
             if (diff <= -sync_threshold) {
-                delay = FFMAX(0, delay + diff);
-            } else if (diff >= sync_threshold && delay > AV_SYNC_FRAMEDUP_THRESHOLD) {
+                delay = FFMAX(0, delay + diff); //减少上一帧持续时间
+            } else if (diff >= sync_threshold && delay > AV_SYNC_FRAMEDUP_THRESHOLD) { // 视频超前
                 delay = delay + diff;
             } else if (diff >= sync_threshold) {
                 delay = 2 * delay;
@@ -1221,6 +1292,7 @@ void FFPlayer::update_video_pts(double pts, int64_t pos, int serial)
 {
     /* update current video pts */
     set_clock(&vidclk, pts / pf_playback_rate, serial);
+    sync_clock_to_slave( &vidclk,&audclk);
 }
 /*!
  * @brief   何时调用：非暂停或强制刷新的时候，循环调用video_refresh
@@ -1236,7 +1308,7 @@ void FFPlayer::video_refresh(double * remaining_time)
 {
     Frame * vp = nullptr, *lastvp = nullptr;
     //目前我们先是只有队列里面有视频帧可以播放，就先播放出来
-    //线上
+    //
     // if ( audio_st) {
     //     double time = av_gettime_relative() / 1000000.0;
     //     if (force_refresh || last_vis_time + rdftspeed < time) {
@@ -1310,7 +1382,7 @@ retry:
                 duration = vp_duration(vp, nextvp);
                 if (!step
                         && (framedrop > 0
-                        || (framedrop && get_master_sync_type() != AV_SYNC_VIDEO_MASTER))
+                            || (framedrop && get_master_sync_type() != AV_SYNC_VIDEO_MASTER))
                         && time >  frame_timer + duration) {
                     frame_drops_late++;
                     //LOG(INFO) << "frame_drops_late  " << frame_drops_late;
@@ -1340,18 +1412,18 @@ display:
 /// @brief 暂停或恢复视频帧播放
 void FFPlayer::stream_toggle_pause()
 {
-   //  if(paused) {
-   //      /* 在恢复播放时，更新视频时钟（vidclk）的状态和时间。
-   //           * 为什么要做这一步,因为默认是以音频为基准做同步，当暂停播放很长时间，视频时钟会增加
-   //           * 虽然它做了动态frame_time 但是暂停时间很长，那动态frame_time值就很大 平均帧就很多
-   //           * compute_target_delay 帧追赶调小，暂停长就能演示出bug，画面不动 音频在动。
-   //   */
-   //      frame_timer += av_gettime_relative() / 1000000.0 - vidclk.last_updated;
+    //  if(paused) {
+    //      /* 在恢复播放时，更新视频时钟（vidclk）的状态和时间。
+    //           * 为什么要做这一步,因为默认是以音频为基准做同步，当暂停播放很长时间，视频时钟会增加
+    //           * 虽然它做了动态frame_time 但是暂停时间很长，那动态frame_time值就很大 平均帧就很多
+    //           * compute_target_delay 帧追赶调小，暂停长就能演示出bug，画面不动 音频在动。
+    //   */
+    //      frame_timer += av_gettime_relative() / 1000000.0 - vidclk.last_updated;
 
-   //      set_clock(&vidclk, get_clock(&vidclk), vidclk.serial);
-   //  }
-   // // 切换 pause/resume 两种状态
-   //  paused = audclk.paused = vidclk.paused = !paused;
+    //      set_clock(&vidclk, get_clock(&vidclk), vidclk.serial);
+    //  }
+    // // 切换 pause/resume 两种状态
+    //  paused = audclk.paused = vidclk.paused = !paused;
 
 }
 void FFPlayer::AddVideoRefreshCallback(
@@ -1392,6 +1464,22 @@ double FFPlayer::get_master_clock()
         break;
     }
     return val;
+}
+///
+/// 设置frame队列缓存区间
+/// \param type 1最大 0抖动值
+/// \param value
+///
+void FFPlayer::ffp_set_pkt_queue_cache(bool type, int value)
+{
+    if(type){
+        audioq.duration_cache_max = value;
+        videoq.duration_cache_max = value;
+    }else{
+        audioq.duration_cache_shake = value;
+        videoq.duration_cache_shake = value;
+    }
+    LOG(INFO) <<"MAX" << audioq.duration_cache_max <<"  "<<videoq.duration_cache_shake ;
 }
 Decoder::Decoder()
 {
@@ -1657,6 +1745,8 @@ int Decoder::audio_thread(void *arg)
                                   });
             av_frame_move_ref(af->frame, frame);
             frame_queue_push(&is->sampq);  // 代表队列真正插入一帧数据
+
+
         }
     } while (ret >= 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF);
 the_end:
@@ -1686,6 +1776,7 @@ int Decoder::video_thread(void *arg)
         if (ret < 0) {
             goto the_end;    //解码结束, 什么时候会结束
         }
+
         if (!ret) {         //没有解码得到画面, 什么情况下会得不到解后的帧
             continue;
         }
@@ -1698,6 +1789,9 @@ int Decoder::video_thread(void *arg)
                                                               }) : 0);
         // 根据AVStream timebase计算出pts值, 单位为秒
         pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);  // 单位为秒
+
+
+
         // 5 将解码后的视频帧插入队列
         ret = queue_picture(&is->pictq, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial_);
         // 6 释放frame对应的数据
@@ -1705,6 +1799,7 @@ int Decoder::video_thread(void *arg)
         if (ret < 0) { // 返回值小于0则退出线程
             goto the_end;
         }
+
     }
 the_end:
     LOG(INFO) <<   " leave " ;

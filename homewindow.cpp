@@ -17,8 +17,8 @@
 int64_t get_ms()
 {
     std::chrono::milliseconds ms = std::chrono::duration_cast< std::chrono::milliseconds >(
-                                       std::chrono::system_clock::now().time_since_epoch()
-                                   );
+                std::chrono::system_clock::now().time_since_epoch()
+                );
     return ms.count();
 }
 
@@ -30,7 +30,7 @@ static int is_realtime(const char *url)
           || !strcmp(url, "sdp")
           || !strcmp(url, "udp")
           || !strcmp(url, "rtmp")
-      ) {
+          ) {
         return 0;
     }
     return 1;
@@ -55,17 +55,17 @@ HomeWindow::HomeWindow(QWidget *parent) :
     network_jitter_duration_ = 100; // 默认100ms
     initUi();
     InitSignalsAndSlots();//绑定各种信号
-    //消息队列
-    msg_queue_ = std::make_shared<MessageQueue>();
+
 }
 
 HomeWindow::~HomeWindow()
 {
+    stop();
     delete ui;
 }
 void HomeWindow::initUi()
 {
-//小图标 不清晰bug https://blog.csdn.net/InTimeTravel/article/details/111880479
+    //小图标 不清晰bug https://blog.csdn.net/InTimeTravel/article/details/111880479
 #if (QT_VERSION >= QT_VERSION_CHECK(5,6,0))
     {
         QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling );
@@ -121,19 +121,22 @@ void HomeWindow::initUi()
  */
 int HomeWindow::InitSignalsAndSlots()
 {
+    //播放文件
     connect(ui->playList, &Playlist::SigPlay, this, &HomeWindow::play); //绑定列表选的的文件播放
-    connect(this, &HomeWindow::sig_stopped, this, &HomeWindow::stop);//被动停止
+    //被动停止
+    connect(this, &HomeWindow::sig_stopped, this, &HomeWindow::stop);
     // 设置play进度条的值
     ui->playSlider->setMinimum(0);
     play_slider_max_value = 6000;
     ui->playSlider->setMaximum(play_slider_max_value);
+    //进度条位置调整
+    connect(this, &HomeWindow::sig_updateCurrentPosition, this, &HomeWindow::on_updateCurrentPosition);
 
-    connect(this, &HomeWindow::sig_updateCurrentPosition, this, &HomeWindow::on_updateCurrentPosition);//进度条位置调整
-    //设置更新音量条的回调
     // 设置音量进度条的值
     ui->volumeSlider->setMinimum(0);
     ui->volumeSlider->setMaximum(128);
     ui->volumeSlider->setValue(50);
+    //设置更新音量条的回调
     connect(ui->playSlider, &CustomSlider::SigCustomSliderValueChanged, this, &HomeWindow::on_playSliderValueChanged); //进度条功能seek
     connect(ui->volumeSlider, &CustomSlider::SigCustomSliderValueChanged, this, &HomeWindow::on_volumeSliderValueChanged);//音量调整
     // toast提示不能直接在非ui线程显示，所以通过信号槽的方式触发提示
@@ -143,7 +146,7 @@ int HomeWindow::InitSignalsAndSlots()
     qRegisterMetaType<Toast::Level>("Toast::Level");
     connect(this, &HomeWindow::sig_showTips, this, &HomeWindow::on_showTips);
     qRegisterMetaType<int64_t>("int64_t");
-
+    //ui显示av cache
     connect(this, &HomeWindow::sig_updateAudioCacheDuration, this, &HomeWindow::on_UpdateAudioCacheDuration);
     connect(this, &HomeWindow::sig_updateVideoCacheDuration, this, &HomeWindow::on_UpdateVideoCacheDuration);
 
@@ -154,6 +157,10 @@ int HomeWindow::InitSignalsAndSlots()
 
     //播放和暂停
     connect(this, &HomeWindow::sig_updatePlayOrPause, this, &HomeWindow::on_updatePlayOrPause);
+
+    //缓存阀门
+    QObject::connect(ui->bufDurationBox,&QComboBox::currentTextChanged,this,&HomeWindow::on_updateDurationCacheMax);
+    QObject::connect(ui->jitterBufBox,&QComboBox::currentTextChanged,this,&HomeWindow::on_updateDurationCacheMin);
     return 0;
 }
 /**
@@ -173,72 +180,76 @@ void HomeWindow::Loop()
     */
     while (1) {
         AVMessage msg;
+
+
         //取消息队列的消息，如果没有消息就阻塞，直到有消息被发到消息队列。
         // 这里先用非阻塞，在此线程可以做其他监测任务
-        int retval = mp->ijkmp_get_msg(&msg, 0);    // 主要处理Java->C的消息
+        int retval = mp->ijkmp_get_msg(&msg, 0,this);    // 主要处理Java->C的消息
         if (retval < 0) {
             break;      // -1 要退出线程循环了
         }
         if(retval == 0) continue;
         switch (msg.what) {
-            case FFP_MSG_FLUSH:
-                LOG(INFO) <<  " FFP_MSG_FLUSH";
-                break;
-            case FFP_MSG_PREPARED:
-                LOG(INFO) <<  " FFP_MSG_PREPARED" ;
-                mp->ijkmp_start(); //向消息队列插入 FFP_REQ_START
-                //            ui->playOrPauseBtn->setText("暂停");
-                break;
-            case FFP_MSG_FIND_STREAM_INFO:
-                LOG(INFO) <<  " FFP_MSG_FIND_STREAM_INFO";
-                getTotalDuration(); //更新ui结束时间
-                break;
-            case FFP_MSG_PLAYBACK_STATE_CHANGED:
-                if(mp_->ijkmp_get_state() == MP_STATE_STARTED) {
-                    emit sig_updatePlayOrPause(MP_STATE_STARTED);   //暂停 -> 播放
-                }
-                if(mp_->ijkmp_get_state() == MP_STATE_PAUSED) {     //播放 -> 暂停
-                    emit sig_updatePlayOrPause(MP_STATE_PAUSED);
-                }
-                break;
-            case FFP_MSG_SEEK_COMPLETE:
-                req_seeking_ = false;
-                //             startTimer();
-                break;
-            case FFP_MSG_SCREENSHOT_COMPLETE:
-                if(msg.arg1 == 0 ) {
-                    tips.sprintf("截屏成功,存储路径:%s", (char *)msg.obj);
-                    emit sig_showTips(Toast::INFO, tips);
-                } else {
-                    tips.sprintf("截屏失败, ret:%d", msg.arg1);
-                    emit sig_showTips(Toast::WARN, tips);
-                }
-                req_screenshot_ = false;
-                break;
-            case FFP_MSG_PLAY_FNISH:
-                tips.sprintf("播放完毕");
+        case FFP_MSG_FLUSH:
+            LOG(INFO) <<  " FFP_MSG_FLUSH";
+            break;
+        case FFP_MSG_PREPARED:
+            LOG(INFO) <<  " FFP_MSG_PREPARED" ;
+            mp->ijkmp_start(); //向消息队列插入 FFP_REQ_START
+            //            ui->playOrPauseBtn->setText("暂停");
+            break;
+        case FFP_MSG_FIND_STREAM_INFO:
+            LOG(INFO) <<  " FFP_MSG_FIND_STREAM_INFO";
+            getTotalDuration(); //更新ui结束时间
+            break;
+        case FFP_MSG_PLAYBACK_STATE_CHANGED:
+            if(mp_->ijkmp_get_state() == MP_STATE_STARTED) {
+                emit sig_updatePlayOrPause(MP_STATE_STARTED);   //暂停 -> 播放
+            }
+            if(mp_->ijkmp_get_state() == MP_STATE_PAUSED) {     //播放 -> 暂停
+                emit sig_updatePlayOrPause(MP_STATE_PAUSED);
+            }
+            break;
+        case FFP_MSG_SEEK_COMPLETE:
+            req_seeking_ = false;
+            //             startTimer();
+            break;
+        case FFP_MSG_SCREENSHOT_COMPLETE:
+            if(msg.arg1 == 0 ) {
+                tips.sprintf("截屏成功,存储路径:%s", (char *)msg.obj);
                 emit sig_showTips(Toast::INFO, tips);
-                // 发送播放完毕的信号触发调用停止函数
-                emit sig_stopped(); // 触发停止
-                break;
-            default:
-                if(retval != 0) {
-                    LOG(WARNING)  <<  " default " << msg.what ;
-                }
-                break;
+            } else {
+                tips.sprintf("截屏失败, ret:%d", msg.arg1);
+                emit sig_showTips(Toast::WARN, tips);
+            }
+            req_screenshot_ = false;
+            break;
+        case FFP_MSG_PLAY_FNISH:
+            tips.sprintf("播放完毕");
+            emit sig_showTips(Toast::INFO, tips);
+            // 发送播放完毕的信号触发调用停止函数
+            emit sig_stopped(); // 触发停止
+            break;
+        default:
+            if(retval != 0) {
+                LOG(WARNING)  <<  " default " << msg.what ;
+            }
+            break;
         }
-        // 获取缓存的值
-        reqUpdateCacheDuration();
-        // 获取当前播放位置
-        reqUpdateCurrentPosition();
+
         if (msg.obj)
             msg.free_l(msg.obj);
+
+        // // ui获取缓存的值
+        // reqUpdateCacheDuration();
+        // // ui更新滑动条和播放时长
+        // reqUpdateCurrentPosition();
 
 
 
         //        LOG(INFO) << "message_loop sleep, mp:" << mp;
         // 先模拟线程运行
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 
 
     }
@@ -267,7 +278,7 @@ void HomeWindow::resizeUI()
     // 获取当前ctrlwidget的位置
     QRect rect =   ui->ctrlBar->geometry();
     rect.setY(height - ui->menuBar->height() - rect.height());
-        LOG(INFO) << "rect: " << rect.x()<<rect.y();
+    LOG(INFO) << "rect: " << rect.x()<<rect.y();
     rect.setWidth(width);
     ui->ctrlBar->setGeometry(rect);
     // 设置setting和listbutton的位置
@@ -282,7 +293,7 @@ void HomeWindow::resizeUI()
     LOG(INFO) << "rect: " << rect.x()<<rect.y();
     x1 = rect.x() - rect.width() - rect.width() / 8 ;
     //ui->settingBtn->setGeometry(x1, rect.y(), rect.width(), rect.height());
-      LOG(INFO) << "settingBtn: " << ui->settingBtn->geometry().x()<<" "<< ui->settingBtn->geometry().y();
+    LOG(INFO) << "settingBtn: " << ui->settingBtn->geometry().x()<<" "<< ui->settingBtn->geometry().y();
     // 设置显示画面
     if(is_show_file_list_) {
         width = this->width() - ui->playList->width();
@@ -364,7 +375,7 @@ int HomeWindow::seek(int cur_valule)
 {
     if(mp_) {
         // 打印当前的值
-        LOG(INFO) << "cur value " << cur_valule;
+        //LOG(INFO) << "cur value " << cur_valule;
         double percent = cur_valule * 1.0 / play_slider_max_value;
         req_seeking_ = true;
         int64_t milliseconds = percent * total_duration_;
@@ -412,7 +423,7 @@ void HomeWindow::getTotalDuration()
         ui->totalDuration->setText(str);
     }
 }
-
+//更新滑动条和播放时长
 void HomeWindow::reqUpdateCurrentPosition()
 {
     int64_t cur_time = get_ms();
@@ -422,18 +433,21 @@ void HomeWindow::reqUpdateCurrentPosition()
         //         LOG(INFO) << "reqUpdateCurrentPosition ";
         if(mp_ && !req_seeking_) {
             current_position_ = mp_->ijkmp_get_current_position();
-            //            LOG(INFO) << "current_position_ " << current_position_;
+                        LOG(INFO) << "current_position_ " << current_position_;
             emit sig_updateCurrentPosition(current_position_);
         }
     }
 }
-
+///
+/// 更新缓存值
+///
 void HomeWindow::reqUpdateCacheDuration()
 {
     int64_t cur_time = get_ms();
     if(cur_time - pre_get_cache_time_ > 500) {
         pre_get_cache_time_ = cur_time;
         if(mp_) {
+            //更改ui
             audio_cache_duration =  mp_->ijkmp_get_property_int64(FFP_PROP_INT64_AUDIO_CACHED_DURATION, 0);
             video_cache_duration  =  mp_->ijkmp_get_property_int64(FFP_PROP_INT64_VIDEO_CACHED_DURATION, 0);
             emit sig_updateAudioCacheDuration(audio_cache_duration);
@@ -441,17 +455,8 @@ void HomeWindow::reqUpdateCacheDuration()
             LOG(INFO)<<"audio_cache_duration  "<<audio_cache_duration
                     <<"video_cache_duration  "<<video_cache_duration;
             //是否触发变速播放取决于是不是实时流，这里由业务判断，目前主要是判断rtsp、rtmp、rtp流为直播流，有些比较难判断，比如httpflv既可以做直播也可以是点播
-            if(real_time_) {
-                if(audio_cache_duration > max_cache_duration_ + network_jitter_duration_) {
-                    // 请求开启变速播放
-                    mp_->ijkmp_set_playback_rate(accelerate_speed_factor_);
-                    is_accelerate_speed_ = true;
-                }
-                if(is_accelerate_speed_ && audio_cache_duration < max_cache_duration_) {
-                    mp_->ijkmp_set_playback_rate(normal_speed_factor_);
-                    is_accelerate_speed_ = false;
-                }
-            }
+            //mp_->Get_ffplayer()->ffp_frameq_cache(1);
+
         }
     }
 }
@@ -505,6 +510,33 @@ void HomeWindow::on_updatePlayOrPause(int state)
     LOG(INFO) << "play state: " << state;
 }
 
+void HomeWindow::on_updateDurationCacheMax(const QString &data)
+{
+    int pos = data.lastIndexOf("ms");
+    if (pos != -1) {
+        QString timeStr = data.left(pos);
+        bool ok;
+        int cache = timeStr.toInt(&ok);
+        if (ok) {
+            mp_->ijkmp_set_pkt_queue_cache(1,cache);
+        }
+    }
+}
+
+void HomeWindow::on_updateDurationCacheMin(const QString &data)
+{
+    int pos = data.lastIndexOf("ms");
+    if (pos != -1) {
+        QString timeStr = data.left(pos);
+        bool ok;
+        int cache = timeStr.toInt(&ok);
+        if (ok) {
+            mp_->ijkmp_set_pkt_queue_cache(0,cache);
+        }
+    }
+
+}
+
 void HomeWindow::on_stopBtn_clicked()
 {
     LOG(INFO) << "OnStop call";
@@ -516,17 +548,17 @@ bool HomeWindow::play(std::string url)
 {
     int ret = 0;
     // 如果本身处于播放状态则先停止原有的播放
-    if(mp_) {
+    if(mp_ || msg_queue_) {
         stop();
     }
     // 1. 先检测mp是否已经创建
     real_time_ = is_realtime(url.c_str());
     if(real_time_)
         is_accelerate_speed_ = true;
-    if(msg_queue_)
-        msg_queue_->msg_queue_destroy();
 
 
+    msg_queue_ = std::make_shared<MessageQueue>();
+    msg_queue_->msg_queue_start();
     //ijk
     mp_ = std::make_shared<IjkMediaPlayer>(msg_queue_);
 
@@ -580,7 +612,7 @@ void HomeWindow::on_updateCurrentPosition(long position)
     //QString格式化arg前面自动补0
     QString str = QString("%1:%2:%3").arg(hour, 2, 10, QLatin1Char('0')).arg(min, 2, 10, QLatin1Char('0')).arg(sec, 2, 10, QLatin1Char('0'));
     if((position <=  total_duration_)   // 如果不是直播，那播放时间该<= 总时长
-       || (total_duration_ == 0)) { // 如果是直播，此时total_duration_为0
+            || (total_duration_ == 0)) { // 如果是直播，此时total_duration_为0
         ui->curPosition->setText(str);
     }
     // 更新进度条
@@ -599,7 +631,10 @@ void HomeWindow::on_updateCurrentPosition(long position)
 void HomeWindow::onTimeOut()
 {
     if(mp_) {
-               //reqUpdateCurrentPosition();
+        // ui获取缓存的值
+         reqUpdateCacheDuration();
+        // ui更新滑动条和播放时长
+         reqUpdateCurrentPosition();
     }
 }
 
@@ -619,35 +654,43 @@ void HomeWindow::on_volumeSliderValueChanged(int value)
 bool HomeWindow::stop()
 {
 
-    if(mp_) {
-        stopTimer();
-        mp_->ijkmp_stop();
-        this->Stop();
-        if(msg_queue_) //消息队列清空
-            msg_queue_->msg_queue_destroy();
-        mp_->Get_ffplayer()->stream_close();
-
-        mp_.reset();
 
 
-        real_time_ = 0;
-        is_accelerate_speed_ = false;
-        ui->display->StopPlay();        // 停止渲染，后续刷黑屏
-        ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
-        ui->playOrPauseBtn->setIconSize(QSize(30,30));
-        return 0;
-    } else {
+    if(!mp_)
         return -1;
-    }
+    stopTimer();
+    mp_->ijkmp_stop();
+    this->Stop();
+
+    mp_->Get_ffplayer()->stream_close();
+
+    mp_.reset();
+
+
+    real_time_ = 0;
+    is_accelerate_speed_ = false;
+    ui->display->StopPlay();        // 停止渲染，后续刷黑屏
+    ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
+    ui->playOrPauseBtn->setIconSize(QSize(30,30));
+
+    if(!msg_queue_)
+        return -1;
+    //消息队列清空
+    msg_queue_->msg_queue_destroy();
+    msg_queue_.reset();
+
+    return 0;
 }
 
 void HomeWindow::on_speedBtn_clicked()
 {
     if(mp_) {
         // 先获取当前的倍速,每次叠加0.5, 支持0.5~2.0倍速
-        float rate =  mp_->ijkmp_get_playback_rate() + 0.5;
-        if(rate > 2.0) {
+        float rate =  mp_->ijkmp_get_playback_rate();
+        if(rate == 2.0) {
             rate = 0.5;
+        }else{
+            rate+=0.5;
         }
         mp_->ijkmp_set_playback_rate(rate);
         ui->speedBtn->setText(QString("倍速:%1").arg(rate));
@@ -662,7 +705,7 @@ void HomeWindow::startTimer()
         return;
     }
     play_timer_ = std::make_unique<QTimer>();
-    play_timer_.get()->setInterval(1000);  // 1秒触发一次
+    play_timer_.get()->setInterval(500);  // 1秒触发一次
     connect(play_timer_.get(), SIGNAL(timeout()), this, SLOT(onTimeOut()));
     play_timer_.get()->start();
 }
@@ -713,70 +756,70 @@ void HomeWindow::on_showTips(Toast::Level leve, QString tips)
 void HomeWindow::on_bufDurationBox_currentIndexChanged(int index)
 {
     switch (index) {
-        case 0:
-            max_cache_duration_ = 30;
-            break;
-        case 1:
-            max_cache_duration_ = 100;
-            break;
-        case 2:
-            max_cache_duration_ = 200;
-            break;
-        case 3:
-            max_cache_duration_ = 400;
-            break;
-        case 4:
-            max_cache_duration_ = 600;
-            break;
-        case 5:
-            max_cache_duration_ = 800;
-            break;
-        case 6:
-            max_cache_duration_ = 1000;
-            break;
-        case 7:
-            max_cache_duration_ = 2000;
-            break;
-        case 8:
-            max_cache_duration_ = 4000;
-            break;
-        default:
-            break;
+    case 0:
+        max_cache_duration_ = 30;
+        break;
+    case 1:
+        max_cache_duration_ = 100;
+        break;
+    case 2:
+        max_cache_duration_ = 200;
+        break;
+    case 3:
+        max_cache_duration_ = 400;
+        break;
+    case 4:
+        max_cache_duration_ = 600;
+        break;
+    case 5:
+        max_cache_duration_ = 800;
+        break;
+    case 6:
+        max_cache_duration_ = 1000;
+        break;
+    case 7:
+        max_cache_duration_ = 2000;
+        break;
+    case 8:
+        max_cache_duration_ = 4000;
+        break;
+    default:
+        break;
     }
 }
 
 void HomeWindow::on_jitterBufBox_currentIndexChanged(int index)
 {
     switch (index) {
-        case 0:
-            max_cache_duration_ = 30;
-            break;
-        case 1:
-            max_cache_duration_ = 100;
-            break;
-        case 2:
-            max_cache_duration_ = 200;
-            break;
-        case 3:
-            max_cache_duration_ = 400;
-            break;
-        case 4:
-            max_cache_duration_ = 600;
-            break;
-        case 5:
-            max_cache_duration_ = 800;
-            break;
-        case 6:
-            max_cache_duration_ = 1000;
-            break;
-        case 7:
-            max_cache_duration_ = 2000;
-            break;
-        case 8:
-            max_cache_duration_ = 4000;
-            break;
-        default:
-            break;
+    case 0:
+        max_cache_duration_ = 30;
+        break;
+    case 1:
+        max_cache_duration_ = 100;
+        break;
+    case 2:
+        max_cache_duration_ = 200;
+        break;
+    case 3:
+        max_cache_duration_ = 400;
+        break;
+    case 4:
+        max_cache_duration_ = 600;
+        break;
+    case 5:
+        max_cache_duration_ = 800;
+        break;
+    case 6:
+        max_cache_duration_ = 1000;
+        break;
+    case 7:
+        max_cache_duration_ = 2000;
+        break;
+    case 8:
+        max_cache_duration_ = 4000;
+        break;
+    default:
+        break;
     }
 }
 
