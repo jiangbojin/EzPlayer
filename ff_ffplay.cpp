@@ -68,7 +68,8 @@ int FFPlayer::ffp_start_l()
 int FFPlayer::ffp_stop_l()
 {
     abort_request = 1;  // 请求退出
-    msg_queue_->msg_queue_abort();  // 禁止再插入消息
+    if(msg_queue_)
+        msg_queue_->msg_queue_abort();  // 禁止再插入消息
     return 0;
 }
 
@@ -118,9 +119,11 @@ int FFPlayer::stream_open(const char *file_name)
     startup_volume = av_clip(SDL_MIX_MAXVOLUME *  startup_volume / 100, 0, SDL_MIX_MAXVOLUME);
     audio_volume =  startup_volume;
     // 创建解复用器读数据线程 read_thread
-    read_thread_ = new std::thread(&FFPlayer::read_thread, this);
+    read_thread_ = std::make_unique<std::thread>(&FFPlayer::read_thread, this) ;
+            //new std::thread(&FFPlayer::read_thread, this);
     // 创建视频刷新线程video_refresh_thread
-    video_refresh_thread_ = new std::thread(&FFPlayer::video_refresh_thread, this);
+    video_refresh_thread_ = std::make_unique<std::thread>(&FFPlayer::video_refresh_thread, this) ;
+
     return 0;
 fail:
     stream_close();
@@ -142,6 +145,7 @@ void FFPlayer::stream_close()
     abort_request = 1; // 请求退出
     if(read_thread_ && read_thread_->joinable()) {
         read_thread_->join();       // 等待线程退出
+        read_thread_.reset();
     }
     /* close each stream */
     if (audio_stream >= 0) {
@@ -149,11 +153,14 @@ void FFPlayer::stream_close()
     }
     if (video_stream >= 0) {
         stream_component_close(video_stream);
+
     }
+
     // 关闭解复用器 avformat_close_input(&ic);
     // 释放packet队列
     packet_queue_destroy(&videoq);
     packet_queue_destroy(&audioq);
+
     // 释放frame队列
     frame_queue_destory(&pictq);
     frame_queue_destory(&sampq);
@@ -162,23 +169,27 @@ void FFPlayer::stream_close()
         input_filename_ = NULL;
     }
 }
-
+enum AVPixelFormat FFPlayer::hw_pix_fmt = AV_PIX_FMT_NONE;
 // 如果想指定解码器怎么处理？
 // 打开对应的解码器并做初始化
 // 创建和启动解码线程
 // 初始化⾳频或视频输出设备
 int FFPlayer::stream_component_open(int stream_index)
 {
+
     AVCodecContext *avctx;
     AVCodec *codec;
     int sample_rate;
     int nb_channels;
     int64_t channel_layout;
     int ret = 0;
+    enum AVHWDeviceType type;
+
     // 判断stream_index是否合法
     if (stream_index < 0 || stream_index >= ic->nb_streams) {
         return -1;
     }
+
     /*  为解码器分配一个编解码器上下文结构体 */
     avctx = avcodec_alloc_context3(NULL);
     if (!avctx) {
@@ -189,16 +200,28 @@ int FFPlayer::stream_component_open(int stream_index)
     if (ret < 0) {
         goto fail;
     }
+
     // 设置pkt_timebase
     avctx->pkt_timebase = ic->streams[stream_index]->time_base;
     /* 根据codec_id查找解码器 */
     codec = (AVCodec *)avcodec_find_decoder(avctx->codec_id);
+
     if (!codec) {
         av_log(NULL, AV_LOG_WARNING,
                "No decoder could be found for codec %s\n", avcodec_get_name(avctx->codec_id));
         ret = AVERROR(EINVAL);
         goto fail;
     }
+
+    if(m_isHw_device && stream_index == AVMEDIA_TYPE_VIDEO)
+    {
+        // 初始化硬件解码器（在avcodec_open2前调用）
+        if(initHWDecoder(avctx,codec) < 0){
+            msg_queue_->notify_msg(FFP_MSG_VIDEO_HW_DECODE_NONE);
+        }
+    }
+
+
     if ((ret = avcodec_open2(avctx, codec, NULL)) < 0) {
         goto fail;
     }
@@ -233,7 +256,10 @@ int FFPlayer::stream_component_open(int stream_index)
         video_st = ic->streams[stream_index];// 获取video的stream指针
         //        // 初始化ffplay封装的视频解码器
         viddec.decoder_init(avctx, &videoq,this); //
-        //        // 启动视频频解码线程
+        // 解码器信息
+        decode_type = avcodec_get_name(avctx->codec_id);
+
+        // 启动视频频解码线程
         if ((ret = viddec.decoder_start(AVMEDIA_TYPE_VIDEO, "video_decoder", this)) < 0) {
             goto out;
         }
@@ -277,10 +303,12 @@ void FFPlayer::stream_component_close(int stream_index)
         // 请求退出视频画面刷新线程
         if(video_refresh_thread_ && video_refresh_thread_->joinable()) {
             video_refresh_thread_->join();  // 等待线程退出
+            video_refresh_thread_.reset();
         }
         LOG(INFO) <<  "  AVMEDIA_TYPE_VIDEO\n";
         // 请求终止解码器线程
-        // 关闭音频设备
+        //关闭硬件解码资源
+        DeinitHWDecoder();
         // 销毁解码器
         viddec.decoder_abort(&pictq);
         viddec.decoder_destroy();
@@ -584,13 +612,13 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
 int FFPlayer::audio_open(int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *audio_hw_params)
 {
     SDL_AudioSpec wanted_spec;
-    // 音频参数设置SDL_AudioSpec
+    // 音频参数设置SDL_AudioSpec  以便sdl后续调用cb
     wanted_spec.freq = wanted_sample_rate;          // 采样频率
     wanted_spec.format = AUDIO_S16SYS; // 采样点格式
     wanted_spec.channels = wanted_nb_channels;          // 2通道
     wanted_spec.silence = 0;
     wanted_spec.samples = 2048;       // 23.2ms -> 46.4ms 每次读取的采样数量，多久产生一次回调和 samples
-    wanted_spec.callback = sdl_audio_callback; // 回调函数
+    wanted_spec.callback = sdl_audio_callback; //在音频设备开始播放后,SDL 会在计算出的固定时间点自动调用您提供的 SDL_AudioCallback 函数
     wanted_spec.userdata = this;
 
     CoInitialize(NULL); //解决openaudio报错问题
@@ -743,6 +771,8 @@ int FFPlayer::ffp_seek_to_l(long msec)
     }
     LOG(INFO) << "seek to:  " << seek_pos / 1000 ;
     stream_seek(seek_pos, 0, 0);
+
+    return 0;
 }
 
 int FFPlayer::ffp_forward_to_l(long incr)
@@ -925,7 +955,7 @@ void FFPlayer::ffp_frameq_cache(int value)
         return;
     //超过 max + shake
     if(frameq_cache_flag && (audioq.duration_cache_max + videoq.duration_cache_shake < stat.audio_cache.duration
-        || videoq.duration_cache_max + videoq.duration_cache_shake < stat.video_cache.duration )
+                             || videoq.duration_cache_max + videoq.duration_cache_shake < stat.video_cache.duration )
             ){
         msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_SPEED);
         if(frameq_cache_flag)
@@ -934,7 +964,7 @@ void FFPlayer::ffp_frameq_cache(int value)
 
 
     }else if(!frameq_cache_flag && (audioq.duration_cache_max - videoq.duration_cache_shake > stat.audio_cache.duration
-              || videoq.duration_cache_max - videoq.duration_cache_shake > stat.video_cache.duration )
+                                    || videoq.duration_cache_max - videoq.duration_cache_shake > stat.video_cache.duration )
              ){ //低于max - shake
         //投递恢复
         msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_REGAIN);
@@ -1114,11 +1144,16 @@ int FFPlayer::read_thread()
     st_index[AVMEDIA_TYPE_VIDEO] =
             av_find_best_stream(ic, AVMEDIA_TYPE_VIDEO,
                                 st_index[AVMEDIA_TYPE_VIDEO], -1, NULL, 0);
+
     st_index[AVMEDIA_TYPE_AUDIO] =
             av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO,
                                 st_index[AVMEDIA_TYPE_AUDIO],
                                 st_index[AVMEDIA_TYPE_VIDEO],
                                 NULL, 0);
+
+
+
+
     /* open the streams */
     /* 8. 打开视频、音频解码器。在此会打开相应解码器，并创建相应的解码线程。 */
     if (st_index[AVMEDIA_TYPE_AUDIO] >= 0) {// 如果有音频流则打开音频流
@@ -1228,7 +1263,7 @@ fail:
 #define REFRESH_RATE 0.01  // 每帧休眠10ms
 int FFPlayer::video_refresh_thread()
 {
-    double remaining_time = 0.0;
+    double remaining_time = 0.0; //vieopts-system  是个正数则表示超过了系统时钟，需要放慢 。是个负数则看情况进行drop。
     while (!abort_request) {
         if (remaining_time > 0.0) { //视频播放过快
             av_usleep((int)(int64_t)(remaining_time * 1000000.0));
@@ -1481,12 +1516,80 @@ void FFPlayer::ffp_set_pkt_queue_cache(bool type, int value)
     }
     LOG(INFO) <<"MAX" << audioq.duration_cache_max <<"  "<<videoq.duration_cache_shake ;
 }
+
+int FFPlayer::initHWDecoder(AVCodecContext*avctx, const AVCodec *codec)
+{
+    if(!avctx && !codec) return -2;
+
+    enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hw_device_type.data()); // 根据名称自动寻找硬解码
+    if (type == AV_HWDEVICE_TYPE_NONE){
+        return -1;
+    }
+    //2.获取编码器支持的硬件配置:
+    for(int i = 0; ; i++)
+    {
+        const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);    // 检索编解码器支持的硬件配置。
+        if(!config)
+        {
+            LOG(ERROR)<< "打开硬件解码器失败！";
+            m_isHw_device = false;
+            hw_device_type.clear();
+            return -1;          // 没有找到支持的硬件配置
+        }
+
+        if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX
+                &&  config->device_type == type)       // 判断是否是设备类型
+        {
+            hw_pix_fmt = config->pix_fmt;
+            LOG(INFO) << "打开硬件解码器：" << av_hwdevice_get_type_name(config->device_type);
+            // 打开指定类型的设备，并为其创建AVHWDeviceContext。
+            int ret = av_hwdevice_ctx_create(&hw_device_ctx, config->device_type, nullptr, nullptr, 0);
+            if(ret < 0)
+            {
+                fprintf(stderr, "Failed to create specified HW device.\n");
+                return ret;
+            }
+            avctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);  // 创建一个对AVBuffer的新引用。
+            avctx->get_format = get_hw_format;                    // 由一些解码器调用，以选择将用于输出帧的像素格式
+            return 1;
+        }
+    }
+
+    return -1;
+}
+
+int FFPlayer::DeinitHWDecoder()
+{
+    //硬解关闭
+    //释放硬解码资源
+    m_isHw_device = false;
+    hw_device_type.clear();
+    if(hw_device_ctx)
+    av_buffer_unref(&hw_device_ctx);
+    return 0;
+}
+
+
+
+AVPixelFormat FFPlayer::get_hw_format(AVCodecContext *ctx, const AVPixelFormat *pix_fmts)
+{
+    const enum AVPixelFormat *p;
+
+    for (p = pix_fmts; *p != -1; ++p) {
+        if(*p == hw_pix_fmt)
+            return *p;
+    }
+    return AV_PIX_FMT_NONE;
+}
 Decoder::Decoder()
 {
     av_init_packet(&pkt_);
+
+
 }
 Decoder::~Decoder()
 {
+
 }
 void Decoder::decoder_init(AVCodecContext * avctx, PacketQueue * queue,void* is_)
 {
@@ -1500,9 +1603,9 @@ int Decoder::decoder_start(AVMediaType codec_type, const char *thread_name, void
     packet_queue_start(queue_);
     // 创建线程
     if(AVMEDIA_TYPE_VIDEO == codec_type) {
-        decoder_thread_ = new std::thread(&Decoder::video_thread, this, arg);
+        decoder_thread_ = std::make_unique<std::thread>(&Decoder::video_thread, this, arg);
     } else if (AVMEDIA_TYPE_AUDIO == codec_type) {
-        decoder_thread_ = new std::thread(&Decoder::audio_thread, this, arg);
+        decoder_thread_ =std::make_unique<std::thread>(&Decoder::audio_thread, this, arg);
     } else {
         return -1;
     }
@@ -1511,11 +1614,10 @@ int Decoder::decoder_start(AVMediaType codec_type, const char *thread_name, void
 void Decoder::decoder_abort(FrameQueue * fq)
 {
     packet_queue_abort(queue_);     // 请求退出包队列
-    frame_queue_signal(fq);     // 唤醒阻塞的帧队列
+    frame_queue_signal(fq);          // 唤醒阻塞的帧队列
     if(decoder_thread_ && decoder_thread_->joinable()) {
         decoder_thread_->join(); // 等待解码线程退出
-        delete decoder_thread_;
-        decoder_thread_ = NULL;
+        decoder_thread_.reset();
     }
     packet_queue_flush(queue_);  // 情况packet队列，并释放数据
 }
@@ -1530,6 +1632,7 @@ void Decoder::decoder_destroy()
 //       1: 获取到解码后的frame
 int Decoder::decoder_decode_frame(AVFrame * frame)
 {
+
     int ret = AVERROR(EAGAIN);
     for (;;) {
         AVPacket pkt;
@@ -1550,6 +1653,9 @@ int Decoder::decoder_decode_frame(AVFrame * frame)
                             frame->pts = frame->pkt_dts;
                         }
                         //                        LOG(INFO) << "video frame pts:" <<  frame->pts << ", dts:" << frame->pkt_dts;
+
+
+
                     }
                     break;
                 case AVMEDIA_TYPE_AUDIO:
@@ -1655,7 +1761,7 @@ int Decoder::get_video_frame(AVFrame * frame)
        aggressive：更积极地丢弃帧,以尽量保证播放的流畅性。
 
     */
-    //2. 分析获取到的该帧是否要drop掉, 该机制的目的是在放入帧队列前先drop掉过时的视频帧
+    //2. frame drop 分析获取到的该帧是否要drop掉, 该机制的目的是在放入帧队列前先drop掉过时的视频帧
     if (got_picture) {
 
         // double dpts = NAN;
@@ -1759,6 +1865,10 @@ int Decoder::video_thread(void *arg)
     LOG(INFO) <<   " into " ;
     FFPlayer *is = (FFPlayer *)arg;
     AVFrame *frame = av_frame_alloc();  // 分配解码帧
+    AVFrame *hw_frame = nullptr;
+    AVFrame* tmp_frame = nullptr; //硬件解码
+
+
     double pts;                 // pts
     double duration;            // 帧持续时间
     int ret;
@@ -1792,10 +1902,27 @@ int Decoder::video_thread(void *arg)
 
 
 
+        //硬解2 从硬件buffer拷贝的内存来
+        //这里可以考虑直接使用frame给显存暂时， 这里如果开启耗时增加%75左右
+        if(is->m_isHw_device){
+            hw_frame = av_frame_alloc();
+            if(hw_decoder_gpu_tocpu_copy(hw_frame,frame) < 0)
+                goto the_end;
+            else
+                tmp_frame = hw_frame;
+        }
+        else{
+            tmp_frame = frame;
+        }
+
+
+
+
+
         // 5 将解码后的视频帧插入队列
-        ret = queue_picture(&is->pictq, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial_);
+        ret = queue_picture(&is->pictq, tmp_frame, pts, duration, tmp_frame->pkt_pos, is->viddec.pkt_serial_);
         // 6 释放frame对应的数据
-        av_frame_unref(frame);
+        av_frame_unref(tmp_frame);
         if (ret < 0) { // 返回值小于0则退出线程
             goto the_end;
         }
@@ -1803,6 +1930,31 @@ int Decoder::video_thread(void *arg)
     }
 the_end:
     LOG(INFO) <<   " leave " ;
+    if(frame)
     av_frame_free(&frame);
+
+    if(is->m_isHw_device && tmp_frame)
+    av_frame_free(&tmp_frame);
+
+
     return 0;
+}
+
+int Decoder::hw_decoder_gpu_tocpu_copy(AVFrame *dst, AVFrame *src)
+{
+    if (src->format == is->hw_pix_fmt){
+        //// av_hwframe_map在ffmpeg3.3以后才有，经过测试av_hwframe_transfer_data的耗时大概是av_hwframe_map的【1.5倍】
+        int ret = av_hwframe_transfer_data(dst, src, 0);                   // 映射硬件数据帧
+            //  av_hwframe_map()
+        if(ret < 0)
+        {
+            LOG(ERROR)<<"av_hwframe_map failt " << is->hw_pix_fmt;
+            return -1;
+        }
+
+
+    } else{
+        dst = src;
+    }
+    return 1;
 }

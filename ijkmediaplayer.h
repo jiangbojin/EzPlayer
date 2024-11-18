@@ -93,6 +93,10 @@ public:
 
 
     std::shared_ptr<FFPlayer> Get_ffplayer() const;
+
+    //硬件解码
+    void ijkmp_set_HW_DecodeType(const std::string &data);
+
 };
 
 #endif // IJKMEDIAPLAYER_H

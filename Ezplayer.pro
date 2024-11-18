@@ -28,6 +28,7 @@ RC_ICONS = player.ico
 
 SOURCES += \
     commonlooper.cpp \
+    imagescaler.cpp \
         main.cpp \
         homewindow.cpp \
     ff_ffplay.cpp \
@@ -45,7 +46,8 @@ SOURCES += \
     screenshot.cpp \
     toast.cpp \
     ijksdl_timer.cpp \
-    log/easylogging++.cc
+    log/easylogging++.cc \
+    yuv420p_render.cpp
 
 HEADERS += \
     commonlooper.h \
@@ -68,7 +70,8 @@ HEADERS += \
     screenshot.h \
     toast.h \
     ijksdl_timer.h \
-    log/easylogging++.h
+    log/easylogging++.h \
+    yuv420p_render.h
 
 FORMS += \
         homewindow.ui \
@@ -93,6 +96,11 @@ LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
 
 LIBS += -lOle32
 }
+
 UI_DIR=$$PWD/
 RESOURCES += \
     resource.qrc
+
+
+QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
+QMAKE_LFLAGS_RELEASE = $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO

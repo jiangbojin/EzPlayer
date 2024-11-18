@@ -13,6 +13,14 @@ std::shared_ptr<FFPlayer> IjkMediaPlayer::Get_ffplayer() const
     return ffplayer_;
 }
 
+void IjkMediaPlayer::ijkmp_set_HW_DecodeType(const std::string &data)
+{
+    if(data.empty())
+        return;
+    ffplayer_->m_isHw_device = true;
+    ffplayer_->hw_device_type = data;
+
+}
 
 
 IjkMediaPlayer::IjkMediaPlayer(std::shared_ptr<MessageQueue> msg_queue)
@@ -37,6 +45,9 @@ int IjkMediaPlayer::ijk_init()
         return -1;
     }
 
+
+
+    return 0;
 }
 
 int IjkMediaPlayer::ijk_destroy()
@@ -232,7 +243,7 @@ int IjkMediaPlayer::ijkmp_get_msg(AVMessage *msg, int block,void* is_)
             ffplayer_->pf_playback_rate=1;
             break;
         default:
-            LOG(INFO) <<  " default " << msg->what ;
+            //LOG(INFO) <<  " default " << msg->what ;
             break;
         }
 

@@ -7,6 +7,10 @@
 #include "ijkmediaplayer.h"
 #include<messagequeue.h>
 #include<commonlooper.h>
+
+//opengl渲染测试
+#include<QOpenGLWidget>
+#include<yuv420p_render.h>
 namespace Ui
 {
 class HomeWindow;
@@ -58,6 +62,11 @@ private:
     int64_t video_bitrate_duration = 0;
     void initUi();
     int InitSignalsAndSlots();
+
+    //硬件解码
+    std::string hw_decode;
+
+
 public:
     explicit HomeWindow(QWidget *parent = 0);
     ~HomeWindow();
@@ -164,6 +173,9 @@ public:
 
 
 
+public slots:
+    //硬件加速更改
+    void on_updateHW_DecodeType(const QString &data);
 };
 
 #endif // HOMEWINDOW_H

@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     //设置日志输出格式,包括日期时间、日志级别、函数名称、行号和日志信息。
     conf.setGlobally(el::ConfigurationType::Format, "[%datetime | %level] %func(L%line) %msg");
     conf.setGlobally(el::ConfigurationType::Filename, "log_%datetime{%Y%M%d}.log");// 设置日志文件名,以当前日期命名。
-    conf.setGlobally(el::ConfigurationType::Enabled, "true");//启用日志输出。
+    conf.setGlobally(el::ConfigurationType::Enabled, "false");//启用日志输出。
     conf.setGlobally(el::ConfigurationType::ToFile, "true");//输出日志到文件。
     el::Loggers::reconfigureAllLoggers(conf);//将配置应用到所有日志记录器。
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::ToStandardOutput, "true"); // 也输出一份到终端

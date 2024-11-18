@@ -19,7 +19,12 @@ public:
     AVCodecContext	*avctx_;     // 解码器上下文
     int		pkt_serial_;         // 包序列
     int		finished_;           // =0，解码器处于工作状态；=非0，解码器处于空闲状态
-    std::thread *decoder_thread_ = NULL;
+
+    std::unique_ptr<std::thread>decoder_thread_;
+
+    //使用了硬件加速解码
+
+
 
     int64_t start_pts;
     AVRational start_pts_tb;
@@ -39,6 +44,15 @@ public:
                       double duration, int64_t pos, int serial);
     int audio_thread(void* arg);
     int video_thread(void* arg);
+
+
+    ///硬解码,把gpu的数据放回到dst，建议直接通过显存渲染。
+    ///
+    /// \param dst 放回内存
+    /// \param src gpu frame
+    /// \return
+    ///
+    int hw_decoder_gpu_tocpu_copy(AVFrame* dst,AVFrame* src);
 };
 class FFPlayer
 {
@@ -111,13 +125,14 @@ public:
     void ffp_audio_statistic_l();
     void ffp_video_statistic_l();
 
-    std::shared_ptr<MessageQueue> msg_queue_;
+    std::shared_ptr<MessageQueue> msg_queue_ =nullptr;
 
     char *input_filename_;
     int realtime = 0;
     int  stream_has_enough_packets(AVStream *st, int stream_id, PacketQueue *queue);
     int read_thread();
-    std::thread *read_thread_;
+
+    std::unique_ptr<std::thread> read_thread_;
 
     int video_refresh_thread();
     void video_refresh(double *remaining_time);
@@ -126,8 +141,8 @@ public:
     double compute_target_delay(double delay);
     void  update_video_pts(double pts, int64_t pos, int serial);
     // 视频画面输出相关
-    std::thread *video_refresh_thread_ = NULL;
 
+    std::unique_ptr<std::thread> video_refresh_thread_;
     std::function<int(const Frame *)> video_refresh_callback_ = NULL;
     void AddVideoRefreshCallback(std::function<int(const Frame *)> callback);
 
@@ -190,9 +205,9 @@ public:
     int audio_volume = 50;   // 音量相关
     int startup_volume = 40; // 起始音量
     // seek相关
-    int64_t seek_req = 0;
-    int64_t seek_rel = 0;
-    int64_t seek_flags = 0;
+    int64_t seek_req = 0; //存储请求的寻址位置
+    int64_t seek_rel = 0; //相对寻址的偏移量
+    int64_t seek_flags = 0; //seek方式
     int64_t seek_pos = 0;  // seek的位置
 
     // 截屏相关
@@ -220,6 +235,36 @@ public:
 
     //一键禁音
     bool audio_muted_ = false;
+
+
+    //解码器类型
+    std::string decode_type;
+
+
+    //本机选择的硬件解码名称
+    std::string hw_device_type;
+    //硬加速的对应格式
+    static enum AVPixelFormat hw_pix_fmt;
+    //硬加速的上下文
+    AVBufferRef *hw_device_ctx = NULL;
+    // 记录是否使用硬件解码
+    bool   m_isHw_device = false;
+    //主要api接口
+    ///
+    ///初始化硬件解码器
+    /// \param avctx
+    /// \param codec
+    /// \return -2传参有误，-1硬件有误 1成功返回
+    ///
+    int initHWDecoder(AVCodecContext*avctx, const AVCodec* codec);
+    int DeinitHWDecoder();
+   ///
+    /// 硬件加速格式回调
+    /// \param ctx
+    /// \param pix_fmts
+    /// \return
+    ///
+    static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,const enum AVPixelFormat *pix_fmts);
 };
 
 
