@@ -15,7 +15,7 @@ std::shared_ptr<FFPlayer> IjkMediaPlayer::Get_ffplayer() const
 
 void IjkMediaPlayer::ijkmp_set_HW_DecodeType(const std::string &data)
 {
-    if(data.empty())
+    if(data.empty() || data == "未选择")
         return;
     ffplayer_->m_isHw_device = true;
     ffplayer_->hw_device_type = data;
@@ -62,6 +62,7 @@ int IjkMediaPlayer::ijkmp_set_data_source(const char *url)
     if(!url) {
         return -1;
     }
+
     data_source_ = strdup(url); // 分配内存+ 拷贝字符串
     return 0;
 }
@@ -76,7 +77,7 @@ int IjkMediaPlayer::ijkmp_prepare_async()
     mp_state_ = MP_STATE_ASYNC_PREPARING;
     msg_queue_->msg_queue_start();
     // 调用ffplayer
-    int ret = ffplayer_.get()->ffp_prepare_async_l(data_source_);
+    int ret = ffplayer_->ffp_prepare_async_l(data_source_);
     if(ret < 0) {
         mp_state_ = MP_STATE_ERROR;
         return -1;
@@ -221,7 +222,7 @@ int IjkMediaPlayer::ijkmp_get_msg(AVMessage *msg, int block,void* is_)
             break;
         case FFP_MSG_PREPARED:
             LOG(INFO) <<  " FFP_MSG_PREPARED" ;
-            //            ijkmp_change_state_l(MP_STATE_PREPARED);
+            ijkmp_change_state_l(MP_STATE_PREPARED);
             break;
         case FFP_MSG_SEEK_COMPLETE:
             LOG(INFO) << "ijkmp_get_msg: FFP_MSG_SEEK_COMPLETE\n";
@@ -277,7 +278,9 @@ void IjkMediaPlayer::ijkmp_set_pkt_queue_cache(bool type, int value)
     ffplayer_->ffp_set_pkt_queue_cache(type,value);
 }
 
-
+void IjkMediaPlayer::ijkmp_set_network_timeout(int sec){
+    ffplayer_->timeout_= sec * 1000;
+}
 
 void IjkMediaPlayer::ijkmp_set_playback_rate(float rate)
 {

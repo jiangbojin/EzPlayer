@@ -39,7 +39,7 @@
 #define FFP_MSG_SPEED_SUB_DOUBLE            1301     //播放速度 - 0.5
 #define FFP_MSG_FRAMEQ_CACHE_SPEED          1302     //frame队列duration满 则加速播放+3
 #define FFP_MSG_FRAMEQ_CACHE_REGAIN         1303     //恢复   -3
-
+#define FFP_MSG_NETWORK_URL_ERROR           1304     //rtmp远程连接url有误
 
 
 #define FFP_REQ_START                       20001       // 核心播放器已经准备好了，请求ui模块调用start

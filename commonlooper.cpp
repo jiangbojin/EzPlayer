@@ -1,5 +1,5 @@
 #include "commonlooper.h"
-
+#include"mediabase.h"
 #include"log/easylogging++.h"
 RET_CODE CommonLooper::Start()
 {
@@ -8,9 +8,9 @@ RET_CODE CommonLooper::Start()
     if(worker_ == NULL)
     {
         LOG(ERROR)<<"new std::thread failed";
-        return RET_FAIL;
+        return RET_CODE::RET_FAIL;
     }
-    return RET_OK;
+    return RET_CODE::RET_OK;
 }
 
 void CommonLooper::Stop()

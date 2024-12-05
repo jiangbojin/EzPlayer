@@ -249,20 +249,25 @@ api: FFPlayer::ffp_frameq_cache(int value)
 
 # v1.2预计更新
 
-rtmp拉流 rtsp拉流
+**硬件解码**
 
-网络流最低延迟实现
+[播放器开发之ffmpeg 硬件解码方案-CSDN博客](https://blog.csdn.net/weixin_50873490/article/details/143836492?spm=1001.2014.3001.5501)
 
-```
-ffmpeg -re -i time.mp4  -vcodec copy -acodec copy -f flv -y rtmp://192.168.1.25/live/jbj
-ffplay  rtmp://192.168.1.25/live/jbj
-```
+![image-20241205113604413](./assets/image-20241205113604413.png)
 
 
 
-# 缺陷扩展
+# 参考
 
-4k播放 变速模块存在缺陷，2倍数播放，音视频不同步。暂时不支持4k和字幕流流媒体
+- 在线转换图标网站 https://convertio.co/zh/
+
+- [Qt 设置应用程序图标_qt设置图标_Qt程序员的博客-CSDN博客](https://blog.csdn.net/hw5230/article/details/129447066)
+
+- [QT解决报错registered using qRegisterMetaType()_qregistermetatype 报错-CSDN博客](https://blog.csdn.net/Larry_Yanan/article/details/127686354)
+
+- [Qt开发----如何发布Release版本（生成exe文件）_qt release_冬瓜~的博客-CSDN博客](https://blog.csdn.net/weixin_44793491/article/details/118307151)
+
+
 
 
 

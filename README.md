@@ -1,6 +1,12 @@
 # 项目简介
 
-本项目旨在开发一个基于 FFmpeg 和 SDL 库的音视频播放器 - FFplay。该播放器将提供以下功能:
+![image-20241205112103781](./assets/image-20241205112103781.png)
+
+**v1.1版本**
+
+本项目旨在开发一个基于 FFmpeg 和 SDL 库的音视频播放器 - FFplay。具体详细请查看 **框架设计和分析/**
+
+该播放器将提供以下功能:
 
 1. **播放和暂停**
    - 能够解码和渲染视频和音频数据
@@ -20,22 +26,20 @@
    - 监控音频和视频的缓存情况,并显示缓存进度
 9. **截屏**
    - 提供截屏按钮,用户可以在任意时刻捕获当前画面
-10. **直播流高延迟追赶机制**
-    - 对于直播流,由于网络延迟较高,需要实现一个追赶机制
-11. **硬件加速解码实现**
 
 
 
-详细请查看 
+# V1.2版本更新
 
-框架设计和分析/
+![image-20241205112103781](./assets/image-20241205112103781.png)
 
-# 参考
+支持rtmp拉流播放，检查url格式规范，以及连接失败，突然断开提示。
 
-- 在线转换图标网站 https://convertio.co/zh/
+支持URL最大尝试连接时间。
 
-- [Qt 设置应用程序图标_qt设置图标_Qt程序员的博客-CSDN博客](https://blog.csdn.net/hw5230/article/details/129447066)
+支持拉流播放高延迟下追赶机制。供用户选择缓冲区大小。
 
-- [QT解决报错registered using qRegisterMetaType()_qregistermetatype 报错-CSDN博客](https://blog.csdn.net/Larry_Yanan/article/details/127686354)
+支持选择硬件解码。
 
-- [Qt开发----如何发布Release版本（生成exe文件）_qt release_冬瓜~的博客-CSDN博客](https://blog.csdn.net/weixin_44793491/article/details/118307151)
+支持黑色风格变换。以及网络流相关功能屏蔽。
+

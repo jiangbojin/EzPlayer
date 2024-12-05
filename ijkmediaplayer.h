@@ -96,7 +96,7 @@ public:
 
     //硬件解码
     void ijkmp_set_HW_DecodeType(const std::string &data);
-
+    void ijkmp_set_network_timeout(int sec);
 };
 
 #endif // IJKMEDIAPLAYER_H

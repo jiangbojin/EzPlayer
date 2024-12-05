@@ -4,6 +4,9 @@
 #include <functional>
 #include <messagequeue.h>
 #include "ff_ffplay_def.h"
+
+#include<rtmpplayer.h>
+
 #include "sonic.h"
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -61,6 +64,40 @@ public:
     
     void ffp_destroy();
     int ffp_prepare_async_l(char *file_name);
+
+    ////直播流连接断开
+    //超时处理
+    int64_t timeout_=5000;
+    int64_t pre_timeout_ = 0;      // 记录调用ffmpeg api之前的时间
+    static int decode_interrupt_cb(void * p_this){
+        FFPlayer* puser = static_cast<FFPlayer*>(p_this);
+        if(puser->IsTimeout()){
+            return 1;
+        }
+        //LOG(INFO)<<"puser" << puser->abort_request;
+        return puser->abort_request;
+    }
+    // AVMEDIA_TYPE_VIDEO/ AVMEDIA_TYPE_AUDIO 等，用来保存stream index
+    int st_index[AVMEDIA_TYPE_NB]; //存储音视频流下标的值
+
+    ///
+    ///
+    /// \return true终止阻塞 false继续阻塞等待
+    ///
+    bool IsTimeout(){
+        if(this->Get_BlockTimeout() > timeout_){
+            return true;
+        }
+        return false;
+    }
+    void RestTimeout(){
+        pre_timeout_ = TimesUtil::GetTimeMillisecond();
+    }
+    int64_t Get_BlockTimeout(){
+        return TimesUtil::GetTimeMillisecond() - pre_timeout_;
+    }
+    void print_error(const char *filename, int err);
+
 
     // 播放控制
     int       ffp_start_l();
@@ -125,6 +162,7 @@ public:
     void ffp_audio_statistic_l();
     void ffp_video_statistic_l();
 
+
     std::shared_ptr<MessageQueue> msg_queue_ =nullptr;
 
     char *input_filename_;
@@ -133,6 +171,8 @@ public:
     int read_thread();
 
     std::unique_ptr<std::thread> read_thread_;
+    //rtmp推拉
+    //std::unique_ptr<RTMPPlayer> rtmp_player_;
 
     int video_refresh_thread();
     void video_refresh(double *remaining_time);
@@ -258,7 +298,7 @@ public:
     ///
     int initHWDecoder(AVCodecContext*avctx, const AVCodec* codec);
     int DeinitHWDecoder();
-   ///
+    ///
     /// 硬件加速格式回调
     /// \param ctx
     /// \param pix_fmts

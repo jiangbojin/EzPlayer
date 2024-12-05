@@ -9,6 +9,8 @@
 #include<iostream>
 #include <memory>
 
+enum class RET_CODE;
+
 class CommonLooper
 {
 private:

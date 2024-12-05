@@ -31,25 +31,45 @@ extern "C" {
 #include <assert.h>
 
 #include "ijksdl_timer.h"
-
-#define MAX_QUEUE_SIZE (15 * 1024 * 1024)
+//pkt队列最大容量
+// 最大队列大小 (60 MB)
+#define MAX_QUEUE_SIZE (15 * 1024 * 1024 )
+// 最小帧数
 #define MIN_FRAMES 25
+// 外部时钟最小帧数
 #define EXTERNAL_CLOCK_MIN_FRAMES 2
+// 外部时钟最大帧数
 #define EXTERNAL_CLOCK_MAX_FRAMES 10
 
-/* Step size for volume control in dB */
+// 视频图像帧队列大小
+#define VIDEO_PICTURE_QUEUE_SIZE	3       // 图像帧缓存数量
+#define VIDEO_PICTURE_QUEUE_SIZE_MIN        (3)
+#define VIDEO_PICTURE_QUEUE_SIZE_MAX        (16)
+#define VIDEO_PICTURE_QUEUE_SIZE_DEFAULT    (VIDEO_PICTURE_QUEUE_SIZE_MIN)
+// 字幕帧队列大小
+#define SUBPICTURE_QUEUE_SIZE		16      // 字幕帧缓存数量
+// 采样帧队列大小
+#define SAMPLE_QUEUE_SIZE           9       // 采样帧缓存数量
+// 帧队列大小 (取样本队列、视频队列和字幕队列中的最大值)
+#define FRAME_QUEUE_SIZE FFMAX(SAMPLE_QUEUE_SIZE, FFMAX(VIDEO_PICTURE_QUEUE_SIZE, SUBPICTURE_QUEUE_SIZE))
+
+// 音量控制步长 (dB)
 #define SDL_VOLUME_STEP (0.75)
 
-/* no AV sync correction is done if below the minimum AV sync threshold */
+// 音视频同步阈值范围
+// 小于最小阈值时不进行同步校正
 #define AV_SYNC_THRESHOLD_MIN 0.04
-/* AV sync correction is done if above the maximum AV sync threshold */
+// 大于最大阈值时进行同步校正
 #define AV_SYNC_THRESHOLD_MAX 0.1
-/* If a frame duration is longer than this, it will not be duplicated to compensate AV sync */
+// 如果帧持续时间超过此阈值,将不会复制以补偿音视频同步
 #define AV_SYNC_FRAMEDUP_THRESHOLD 0.1
-/* no AV correction is done if too big error */
+// 错误过大时不进行同步校正
 #define AV_NOSYNC_THRESHOLD 10.0
 
-
+// 将时间戳转换为毫秒
+#define fftime_to_milliseconds(ts) (av_rescale(ts, 1000, AV_TIME_BASE))
+// 将毫秒转换为时间戳
+#define milliseconds_to_fftime(ms) (av_rescale(ms, AV_TIME_BASE, 1000))
 // FFTrackCacheStatistic 结构体
 // 用于存储某个轨道的缓存统计信息
 typedef struct FFTrackCacheStatistic
@@ -93,22 +113,7 @@ typedef struct FFStatistic
     float drop_frame_rate;  // 丢帧率
 } FFStatistic;
 
-enum RET_CODE
-{
-    RET_ERR_UNKNOWN = -2,                   // 未知错误
-    RET_FAIL = -1,							// 失败
-    RET_OK	= 0,							// 正常
-    RET_ERR_OPEN_FILE,						// 打开文件失败
-    RET_ERR_NOT_SUPPORT,					// 不支持
-    RET_ERR_OUTOFMEMORY,					// 没有内存
-    RET_ERR_STACKOVERFLOW,					// 溢出
-    RET_ERR_NULLREFERENCE,					// 空参考
-    RET_ERR_ARGUMENTOUTOFRANGE,				//
-    RET_ERR_PARAMISMATCH,					//
-    RET_ERR_MISMATCH_CODE,                  // 没有匹配的编解码器
-    RET_ERR_EAGAIN,
-    RET_ERR_EOF
-};
+
 
 
 typedef struct MyAVPacketList {
@@ -128,17 +133,10 @@ typedef struct PacketQueue {
     SDL_cond	*cond;      // 用于读、写线程相互通知(SDL_cond可以按pthread_cond_t理解)
 
     //阈值单位ms
-    int duration_cache_max = 4000;
-    int duration_cache_shake =1000;
+    int duration_cache_max = 1000;
+    int duration_cache_shake =100;
 } PacketQueue;
 
-#define VIDEO_PICTURE_QUEUE_SIZE	3       // 图像帧缓存数量
-#define VIDEO_PICTURE_QUEUE_SIZE_MIN        (3)
-#define VIDEO_PICTURE_QUEUE_SIZE_MAX        (16)
-#define VIDEO_PICTURE_QUEUE_SIZE_DEFAULT    (VIDEO_PICTURE_QUEUE_SIZE_MIN)
-#define SUBPICTURE_QUEUE_SIZE		16      // 字幕帧缓存数量
-#define SAMPLE_QUEUE_SIZE           9       // 采样帧缓存数量
-#define FRAME_QUEUE_SIZE FFMAX(SAMPLE_QUEUE_SIZE, FFMAX(VIDEO_PICTURE_QUEUE_SIZE, SUBPICTURE_QUEUE_SIZE))
 
 
 typedef struct AudioParams {
@@ -207,8 +205,6 @@ enum {
 //    AV_SYNC_EXTERNAL_CLOCK,                 // 以外部时钟为基准，synchronize to an external clock */
 };
 
-#define fftime_to_milliseconds(ts) (av_rescale(ts, 1000, AV_TIME_BASE))
-#define milliseconds_to_fftime(ms) (av_rescale(ms, AV_TIME_BASE, 1000))
 
 extern  AVPacket flush_pkt;
 // 队列相关

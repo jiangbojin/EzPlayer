@@ -5,7 +5,7 @@
 #-------------------------------------------------
 
 QT       += core gui
-
+QT += opengl
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 
@@ -27,31 +27,49 @@ RC_ICONS = player.ico
 
 
 SOURCES += \
+ homewindow.cpp \
     commonlooper.cpp \
     imagescaler.cpp \
+    librtmp/amf.c \
+    librtmp/hashswf.c \
+    librtmp/log.c \
+    librtmp/parseurl.c \
+    librtmp/rtmp.c \
         main.cpp \
-        homewindow.cpp \
     ff_ffplay.cpp \
     ff_ffplay_def.cpp \
     ijkmediaplayer.cpp \
     displaywind.cpp \
     globalhelper.cpp \
+    mediabase.cpp \
     medialist.cpp \
     messagequeue.cpp \
     playlist.cpp \
+    rtmpbase.cpp \
+    rtmpplayer.cpp \
     urldialog.cpp \
     customslider.cpp \
-    util.cpp \
     sonic.cpp \
     screenshot.cpp \
     toast.cpp \
     ijksdl_timer.cpp \
     log/easylogging++.cc \
-    yuv420p_render.cpp
+    widget.cpp
 
 HEADERS += \
     commonlooper.h \
         homewindow.h \
+    librtmp/amf.h \
+    librtmp/bytes.h \
+    librtmp/dh.h \
+    librtmp/dhgroups.h \
+    librtmp/handshake.h \
+    librtmp/http.h \
+    librtmp/librtmp.3 \
+    librtmp/log.h \
+    librtmp/rtmp.h \
+    librtmp/rtmp_sys.h \
+    mediabase.h \
     medialist.h \
     ff_ffplay.h \
     ff_ffplay_def.h \
@@ -63,15 +81,16 @@ HEADERS += \
     globalhelper.h \
     messagequeue.h \
     playlist.h \
+    rtmpbase.h \
+    rtmpplayer.h \
     urldialog.h \
     customslider.h \
-    util.h \
     sonic.h \
     screenshot.h \
     toast.h \
     ijksdl_timer.h \
     log/easylogging++.h \
-    yuv420p_render.h
+    widget.h
 
 FORMS += \
         homewindow.ui \
@@ -94,6 +113,8 @@ LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
         $$PWD/ffmpeg-4.2.1-win32-dev/lib/swscale.lib    \
         $$PWD/SDL2/lib/x86/SDL2.lib \
 
+LIBS += "D:\VS\Qt\Tools\mingw810_32\i686-w64-mingw32\lib\libws2_32.a"
+LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86\WinMM.Lib"
 LIBS += -lOle32
 }
 
@@ -104,3 +125,11 @@ RESOURCES += \
 
 QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
 QMAKE_LFLAGS_RELEASE = $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
+
+DISTFILES += \
+    fragment.fsh \
+    librtmp/COPYING \
+    librtmp/Makefile \
+    librtmp/librtmp.3.html \
+    librtmp/librtmp.pc.in \
+    vertex.vsh

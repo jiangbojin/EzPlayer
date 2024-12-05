@@ -8,11 +8,14 @@
 #include <iostream>
 #include <iostream>
 #include <chrono>
+#include <HomeWindow.h>
+#include <HomeWindow.h>
 #include "ffmsg.h"
 #include "globalhelper.h"
 #include "toast.h"
 #include "urldialog.h"
 #include "easylogging++.h"
+#include "homewindow.h"
 
 int64_t get_ms()
 {
@@ -23,17 +26,14 @@ int64_t get_ms()
 }
 
 // 只有认定为直播流，才会触发变速机制
-static int is_realtime(const char *url)
+static int is_realtime(std::string url)
 {
-    if(   !strcmp(url, "rtp")
-          || !strcmp(url, "rtsp")
-          || !strcmp(url, "sdp")
-          || !strcmp(url, "udp")
-          || !strcmp(url, "rtmp")
-          ) {
-        return 0;
+    if (url.compare(0, 7, "rtsp://") == 0 || url.compare(0, 7, "rtmp://") == 0)
+    {
+        return 1;
     }
-    return 1;
+    else
+    return 0;
 }
 
 HomeWindow::HomeWindow(QWidget *parent) :
@@ -49,9 +49,9 @@ HomeWindow::HomeWindow(QWidget *parent) :
     // 初始化为0ms
     ui->audioBufEdit->setText("0ms");
     ui->videoBufEdit->setText("0ms");
-    ui->bufDurationBox->setCurrentIndex(3);
+    ui->bufDurationBox->setCurrentIndex(6);
     ui->jitterBufBox->setCurrentIndex(1);
-    max_cache_duration_ = 400;  // 默认200ms
+    max_cache_duration_ = 1000;  // 默认200ms
     network_jitter_duration_ = 100; // 默认100ms
     initUi();
     InitSignalsAndSlots();//绑定各种信号
@@ -74,8 +74,9 @@ void HomeWindow::initUi()
 #endif
 
     //加载样式
-    QString qss = GlobalHelper::GetQssStr("://res/qss/homewindow.css");
+    QString qss = GlobalHelper::GetQssStr(":/res/qss/grey.css");
     setStyleSheet(qss);
+
     ui->playOrPauseBtn->setText("");
     ui->stopBtn->setText("");
     ui->backFastBtn->setText("");
@@ -121,11 +122,9 @@ void HomeWindow::initUi()
     ui->cbx_hwdecode->addItem("请选择硬件解码设备");
     // 1.遍历所有可用的硬件加速设备类型
     AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
-
     while ((type = av_hwdevice_iterate_types(type)) != AV_HWDEVICE_TYPE_NONE) {
         ui->cbx_hwdecode->addItem(av_hwdevice_get_type_name(type));
     }
-
     if(ui->cbx_hwdecode->count() == 0)
     {
         ui->cbx_hwdecode->clear();
@@ -133,6 +132,8 @@ void HomeWindow::initUi()
     }
 
 }
+
+
 /**
  *  初始化绑定槽函数以及信号槽
  * @return
@@ -182,6 +183,8 @@ int HomeWindow::InitSignalsAndSlots()
 
     //硬件编码
     QObject::connect(ui->cbx_hwdecode,&QComboBox::currentTextChanged,this,&HomeWindow::on_updateHW_DecodeType);
+    //最大尝试连接时间
+    QObject::connect(ui->cbx_network_tm,&QComboBox::currentTextChanged,this,&HomeWindow::on_updateNetWork_TIMEOUT);
     return 0;
 }
 /**
@@ -193,7 +196,7 @@ void HomeWindow::Loop()
 {
     //使用队列来实现等待初始化完成工作
     QString tips;
-    IjkMediaPlayer *mp = this->mp_.get();
+    std::shared_ptr<IjkMediaPlayer> mp = this->mp_;
     // 线程循环
     LOG(INFO) << "message_loop into";
     /*
@@ -246,15 +249,23 @@ void HomeWindow::Loop()
             req_screenshot_ = false;
             break;
         case FFP_MSG_PLAY_FNISH:
-            tips.sprintf("播放完毕");
-            emit sig_showTips(Toast::INFO, tips);
+            if(!is_accelerate_speed_)
+            {
+                tips.sprintf("播放完毕");
+                emit sig_showTips(Toast::INFO, tips);
+            }
             // 发送播放完毕的信号触发调用停止函数
             emit sig_stopped(); // 触发停止
             break;
         case FFP_MSG_VIDEO_HW_DECODE_NONE: //使用硬件解码 没有专属解码器
             tips.sprintf("硬解专属解码器打开失败,请切换其他尝试！");
             emit sig_showTips(Toast::ERROR, tips);
-
+            break;
+        case FFP_MSG_NETWORK_URL_ERROR:
+            emit sig_showTips(Toast::ERROR, (char *)msg.obj);
+            //实现子线程关闭定时器
+            QMetaObject::invokeMethod(this, "stop", Qt::QueuedConnection);
+            break;
         default:
             if(retval != 0) {
                 LOG(WARNING)  <<  " default " << msg.what ;
@@ -278,16 +289,24 @@ void HomeWindow::Loop()
 
 
     }
+    mp.reset();
     LOG(DEBUG) << "message_loop leave";
 
 }
 /// @brief 视频输出回调函数
 /// @param frame 
 /// @return 
-int HomeWindow::OutputVideo(const Frame *frame)
+int HomeWindow::OutputVideo(const Frame *f)
 {
+    // ui->display-> updateFrame(f->frame->width,f->frame->height
+    //                           ,f->frame->data[0], f->frame->data[1], f->frame->data[2]
+    //                               , f->frame->linesize[0]
+    //                               , f->frame->linesize[1]
+    //                                ,f->frame->linesize[2]);
+    // return   1;
+
     // 调用显示控件
-    return ui->display->Draw(frame);
+   return ui->display->Draw(f);
 }
 
 void HomeWindow::resizeEvent(QResizeEvent *event)
@@ -482,16 +501,21 @@ void HomeWindow::reqUpdateCacheDuration()
             //LOG(INFO)<<"audio_cache_duration  "<<audio_cache_duration
             //        <<"video_cache_duration  "<<video_cache_duration;
             //是否触发变速播放取决于是不是实时流，这里由业务判断，目前主要是判断rtsp、rtmp、rtp流为直播流，有些比较难判断，比如httpflv既可以做直播也可以是点播
-            //mp_->Get_ffplayer()->ffp_frameq_cache(1);
+            if(is_accelerate_speed_){
+                mp_->Get_ffplayer()->ffp_frameq_cache(1);
+            }
 
             //输出硬件编码
-            if(!hw_decode.empty())
-            LOG(INFO)<<"hw_decoder_gpu_tocpu_copy SUSS"
-                    <<"flag"<<mp_->Get_ffplayer()->m_isHw_device
-                    <<" hw_device_type  "<<mp_->Get_ffplayer()->hw_device_type
-                   <<" hw_pix_fmt " <<mp_->Get_ffplayer()->hw_pix_fmt;
+            if(hw_decode != "未选择")
+            {
+                LOG(INFO)<<"hw_decoder_gpu_tocpu_copy SUSS"
+                        <<"flag"<<mp_->Get_ffplayer()->m_isHw_device
+                        <<" hw_device_type  "<<mp_->Get_ffplayer()->hw_device_type
+                       <<" hw_pix_fmt " <<mp_->Get_ffplayer()->hw_pix_fmt;
+                LOG(INFO)<<" decode type:" <<mp_->Get_ffplayer()->decode_type;
+            }
 
-            LOG(INFO)<<" decode type:" <<mp_->Get_ffplayer()->decode_type;
+
         }
     }
 }
@@ -513,11 +537,18 @@ void HomeWindow::on_playOrPauseBtn_clicked()
     LOG(INFO) << "OnPlayOrPause call";
     bool ret = false;
     if(!mp_) { //快速播放 直接从列表拿文件url
-        std::string url = ui->playList->GetCurrentUrl();
-        if(!url.empty()) {
-            // 停止状态下启动播放
+
+        if(real_time_ && !url.empty()){
             ret = play(url);
+            return;
+        }else{ //文件
+            std::string url = ui->playList->GetCurrentUrl();
+            if(!url.empty()) {
+                // 停止状态下启动播放
+                ret = play(url);
+            }
         }
+
 
     } else {
         if(mp_->ijkmp_get_state() == MP_STATE_STARTED) {
@@ -537,7 +568,7 @@ void HomeWindow::on_updatePlayOrPause(int state)
 {
     if(state == MP_STATE_STARTED) {
         ui->playOrPauseBtn->setIcon(QIcon(":/res/play.png"));
-        ui->playOrPauseBtn->setIconSize(QSize(33,33));
+        ui->playOrPauseBtn->setIconSize(QSize(32,32));
     } else  {
         ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
         ui->playOrPauseBtn->setIconSize(QSize(30,30));
@@ -551,21 +582,30 @@ void HomeWindow::on_updateDurationCacheMax(const QString &data)
     if (pos != -1) {
         QString timeStr = data.left(pos);
         bool ok;
-        int cache = timeStr.toInt(&ok);
-        if (ok) {
-            mp_->ijkmp_set_pkt_queue_cache(1,cache);
+        queue_cache = timeStr.toInt(&ok);
+        if(is_accelerate_speed_){
+            mp_->ijkmp_set_pkt_queue_cache(1,queue_cache);
+
         }
+    }
+}
+void HomeWindow::on_updateNetWork_TIMEOUT(const QString &data){
+    int pos = data.lastIndexOf("s");
+    if (pos != -1) {
+        QString timeStr = data.left(pos);
+        bool ok;
+        network_timeout = timeStr.toInt(&ok);
+
     }
 }
 void HomeWindow::on_updateHW_DecodeType(const QString &data)
 {
     if(data == "请选择硬件解码设备" || data =="没有合适的硬件解码设备")
     {
-        hw_decode ="";
+        hw_decode ="未选择";
         return;
     }
     hw_decode = data.toStdString();
-
 }
 void HomeWindow::on_updateDurationCacheMin(const QString &data)
 {
@@ -573,10 +613,9 @@ void HomeWindow::on_updateDurationCacheMin(const QString &data)
     if (pos != -1) {
         QString timeStr = data.left(pos);
         bool ok;
-        int cache = timeStr.toInt(&ok);
-        if (ok) {
-            mp_->ijkmp_set_pkt_queue_cache(0,cache);
-        }
+        queue_shake = timeStr.toInt(&ok);
+        if(is_accelerate_speed_)
+            mp_->ijkmp_set_pkt_queue_cache(0,queue_shake);
     }
 
 }
@@ -586,8 +625,33 @@ void HomeWindow::on_stopBtn_clicked()
     LOG(INFO) << "OnStop call";
     stop();
 }
+///
+///
+/// \param flag true设置直播参数 false不设置
+/// \return
+///
+int HomeWindow::set_Accelerate_Real_time(bool flag){
+    is_accelerate_speed_ = flag;
+    real_time_ = flag;
+    //关闭部分Ui
+    ui->playSlider->setEnabled(!flag);
+    ui->speedBtn->setEnabled(!flag);
+    ui->cbx_hwdecode->setEnabled(!flag);
+    ui->forwardFastBtn->setEnabled(!flag);
+    ui->backFastBtn->setEnabled(!flag);
+    ui->prevBtn->setEnabled(!flag);
+    ui->nextBtn->setEnabled(!flag);
+    if(flag && mp_){
+        mp_->ijkmp_set_network_timeout(network_timeout);
+        //缓存限制
+        mp_->ijkmp_set_pkt_queue_cache(1,queue_cache);
+        mp_->ijkmp_set_pkt_queue_cache(0,queue_shake);
+    }
 
-
+    network_timeout=5;
+    queue_cache =1000; //缓存上限
+    queue_shake =100; //抖动区间
+}
 bool HomeWindow::play(std::string url)
 {
     int ret = 0;
@@ -595,11 +659,10 @@ bool HomeWindow::play(std::string url)
     if(mp_) {
         stop();
     }
-    // 1. 先检测mp是否已经创建
-    real_time_ = is_realtime(url.c_str());
-    if(real_time_)
-        is_accelerate_speed_ = true;
 
+
+
+    // 1. 先检测mp是否已经创建
     if(!msg_queue_)
         msg_queue_ = std::make_shared<MessageQueue>();
     msg_queue_->msg_queue_start();
@@ -613,7 +676,7 @@ bool HomeWindow::play(std::string url)
         LOG(ERROR) << "IjkMediaPlayer create failed";
         return false;
     }
-    //设置会cb
+
     //视频刷新回调 display
     mp_->AddVideoRefreshCallback(std::bind(&HomeWindow::OutputVideo, this,
                                            std::placeholders::_1));
@@ -622,16 +685,23 @@ bool HomeWindow::play(std::string url)
     mp_->ijkmp_set_playback_volume(ui->volumeSlider->value());
     //读取ui的硬件解码值
     mp_->ijkmp_set_HW_DecodeType(hw_decode);
-    // 1.3 准备工作
+    // 1.3 初始化设置ijk
     ret = mp_->ijkmp_prepare_async();
     if(ret < 0) {
         LOG(ERROR) << "IjkMediaPlayer create failed";
         return false;
     }
+
+
+
     ui->display->StartPlay();
+    this->Start(); //开启事件循环
     startTimer();//每秒cb
 
-    this->Start(); //开启事件循环
+
+    if(real_time_){
+       set_Accelerate_Real_time(true);
+    }
     return true;
 }
 
@@ -676,7 +746,7 @@ void HomeWindow::on_updateCurrentPosition(long position)
 
 void HomeWindow::onTimeOut()
 {
-    if(mp_) {
+    if( mp_) {
         // ui获取缓存的值
         reqUpdateCacheDuration();
         // ui更新滑动条和播放时长
@@ -702,21 +772,33 @@ bool HomeWindow::stop()
 
     if(!mp_)
         return false;
+
     stopTimer();
+
+
+    if(real_time_){
+        set_Accelerate_Real_time(false);
+    }
+
+    //消息队列和ffplay标志位退出
     mp_->ijkmp_stop();
+    //消息事件停止
     this->Stop();
 
-    mp_->Get_ffplayer()->stream_close();
+    //mp_->Get_ffplayer()->stream_close();
+    mp_->ijk_destroy();
 
     mp_.reset();
 
 
-    real_time_ = 0;
-    is_accelerate_speed_ = false;
+
+
     ui->display->StopPlay();        // 停止渲染，后续刷黑屏
     ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
     ui->playOrPauseBtn->setIconSize(QSize(30,30));
 
+
+    ///消息队列已经停止 开始清空消息
     if(!msg_queue_)
         return false;
     //消息队列清空
@@ -751,9 +833,9 @@ void HomeWindow::startTimer()
         return;
     }
     play_timer_ = std::make_unique<QTimer>();
-    play_timer_.get()->setInterval(500);  // 1秒触发一次
+    play_timer_->setInterval(500);  // 1秒触发一次
     connect(play_timer_.get(), SIGNAL(timeout()), this, SLOT(onTimeOut()));
-    play_timer_.get()->start();
+    play_timer_->start();
 }
 
 void HomeWindow::stopTimer()
@@ -920,5 +1002,45 @@ void HomeWindow::on_audio_muted_clicked(bool checked)
         mp_->ijkmp_set_audio_muted(checked);
         muted = true;
     }
+}
+
+
+void HomeWindow::on_settingBtn_clicked()
+{
+    std::string toast;
+    real_time_ = true;
+    //优先处理直播url
+    if (!(ui->network_URL->text().isEmpty()) ) {
+       toast ="URL："+ ui->network_URL->text().toStdString();
+    }
+    url = ui->network_URL->text().toStdString();
+    real_time_ = is_realtime(url.c_str());
+    if(!(ui->network_URL->text().isEmpty()) && !real_time_){
+        //投递url错误提示
+        emit sig_showTips(Toast::ERROR, "网络流URL错误，请检查。");
+        url.clear();
+        is_accelerate_speed_ = false;
+        return ;
+    }
+
+
+    toast = toast + "\n缓存限制：" +std::to_string(queue_cache )
+            +"-+"+std::to_string(queue_shake)
+            +"\n硬件解码设备："+hw_decode
+            +"\n最长连接时间:"+std::to_string(network_timeout)
+            +"\n参数设置成功，请点击播放连接。";
+
+    emit sig_showTips(Toast::INFO,toast.data());
+
+}
+
+
+void HomeWindow::on_pushButton_clicked(bool checked)
+{
+    static bool isDark = true;
+    isDark = !isDark;
+    QFile file(isDark ? ":/res/qss/grey.css" : ":/res/qss/homewindow.css");
+    file.open(QFile::ReadOnly);
+    setStyleSheet(file.readAll());
 }
 

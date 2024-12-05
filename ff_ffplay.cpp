@@ -17,14 +17,18 @@
 int infinite_buffer = 0;
 static int decoder_reorder_pts = -1;
 static int seek_by_bytes = -1;
-void print_error(const char *filename, int err)
+void FFPlayer::print_error(const char *filename, int err)
 {
     char errbuf[128];
     const char *errbuf_ptr = errbuf;
     if (av_strerror(err, errbuf, sizeof(errbuf)) < 0) {
         errbuf_ptr = strerror(AVUNERROR(err));
     }
-    av_log(NULL, AV_LOG_ERROR, "%s: %s\n", filename, errbuf_ptr);
+    msg_queue_.get()->msg_queue_remove( FFP_MSG_NETWORK_URL_ERROR);
+    std::string error  = filename;
+    error +=   "连接地址有误，请检查url完整性";
+    msg_queue_.get()->notify_msg( FFP_MSG_NETWORK_URL_ERROR, 0, 0, error.data(), error.length());
+    LOG(ERROR)<<filename<<"  "<<errbuf_ptr;
 }
 
 FFPlayer::FFPlayer(std::shared_ptr<MessageQueue>m)
@@ -118,6 +122,7 @@ int FFPlayer::stream_open(const char *file_name)
     startup_volume = av_clip(startup_volume, 0, 128);
     startup_volume = av_clip(SDL_MIX_MAXVOLUME *  startup_volume / 100, 0, SDL_MIX_MAXVOLUME);
     audio_volume =  startup_volume;
+
     // 创建解复用器读数据线程 read_thread
     read_thread_ = std::make_unique<std::thread>(&FFPlayer::read_thread, this) ;
             //new std::thread(&FFPlayer::read_thread, this);
@@ -155,7 +160,17 @@ void FFPlayer::stream_close()
         stream_component_close(video_stream);
 
     }
-
+    if (ic) {
+        ic->interrupt_callback.opaque = NULL;
+        ic->interrupt_callback.callback = NULL;
+        avformat_close_input(&ic);
+        ic = NULL;
+    }
+    //直播流特殊情况
+    if(video_refresh_thread_ && video_refresh_thread_->joinable()) {
+        video_refresh_thread_->join();  // 等待线程退出
+        video_refresh_thread_.reset();
+    }
     // 关闭解复用器 avformat_close_input(&ic);
     // 释放packet队列
     packet_queue_destroy(&videoq);
@@ -213,7 +228,7 @@ int FFPlayer::stream_component_open(int stream_index)
         goto fail;
     }
 
-    if(m_isHw_device && stream_index == AVMEDIA_TYPE_VIDEO)
+    if(m_isHw_device && stream_index == st_index[AVMEDIA_TYPE_VIDEO])
     {
         // 初始化硬件解码器（在avcodec_open2前调用）
         if(initHWDecoder(avctx,codec) < 0){
@@ -948,14 +963,18 @@ void FFPlayer::ffp_set_playback_volume(int value)
     audio_volume = value;
     LOG(INFO) << "audio_volume: " << audio_volume  ;
 }
-
+///
+/// 对于超过max+shake表示缓存队列过多，需要快速清除。选择1.5快播
+/// 对于低于max-shake表示缓存队列过少，需要恢复。选择1.5快播
+/// \param value
+///
 void FFPlayer::ffp_frameq_cache(int value)
 {
     if(frameq_cache_flag == 2)
         return;
     //超过 max + shake
     if(frameq_cache_flag && (audioq.duration_cache_max + videoq.duration_cache_shake < stat.audio_cache.duration
-                             || videoq.duration_cache_max + videoq.duration_cache_shake < stat.video_cache.duration )
+                            && videoq.duration_cache_max + videoq.duration_cache_shake < stat.video_cache.duration )
             ){
         msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_SPEED);
         if(frameq_cache_flag)
@@ -964,7 +983,7 @@ void FFPlayer::ffp_frameq_cache(int value)
 
 
     }else if(!frameq_cache_flag && (audioq.duration_cache_max - videoq.duration_cache_shake > stat.audio_cache.duration
-                                    || videoq.duration_cache_max - videoq.duration_cache_shake > stat.video_cache.duration )
+                                    && videoq.duration_cache_max - videoq.duration_cache_shake > stat.video_cache.duration )
              ){ //低于max - shake
         //投递恢复
         msg_queue_->notify_msg(FFP_MSG_FRAMEQ_CACHE_REGAIN);
@@ -973,13 +992,13 @@ void FFPlayer::ffp_frameq_cache(int value)
     }
 
 
-    /*LOG(INFO)<<"AUDIOQ dura"<< stat.audio_cache.duration
+    LOG(INFO)<<"AUDIOQ dura"<< stat.audio_cache.duration
             <<"max a"<< audioq.duration_cache_max
            <<"shake a"<< audioq.duration_cache_shake
           <<"video dura" << stat.video_cache.duration
          <<"max a"<< videoq.duration_cache_max
         <<"shakea"<< videoq.duration_cache_shake
-       <<"flag" << frameq_cache_flag;*/
+       <<"flag" << frameq_cache_flag;
 
 }
 
@@ -1014,7 +1033,6 @@ int64_t FFPlayer::ffp_get_property_int64(int id, int64_t default_value)
 {
     switch (id) {
     case FFP_PROP_INT64_AUDIO_CACHED_DURATION:
-
         return  stat.audio_cache.duration;
     case FFP_PROP_INT64_VIDEO_CACHED_DURATION:
         return  stat.video_cache.duration;
@@ -1074,6 +1092,9 @@ static int is_realtime(AVFormatContext * s)
     }
     return 0;
 }
+
+
+
 ///
 /// 数据都由这里读取，主要功能是做解复用，从码流中分离音视频packet，并插入缓存队列
 /// \return
@@ -1081,7 +1102,7 @@ static int is_realtime(AVFormatContext * s)
 int FFPlayer::read_thread()
 {
     int err, i, ret;
-    int st_index[AVMEDIA_TYPE_NB];      // AVMEDIA_TYPE_VIDEO/ AVMEDIA_TYPE_AUDIO 等，用来保存stream index
+
     AVPacket pkt1;
     AVPacket *pkt = &pkt1;  //
     // 初始化为-1,如果一直为-1说明没相应steam
@@ -1103,13 +1124,17 @@ int FFPlayer::read_thread()
      * 回调函数中返回1则代表ffmpeg结束耗时操作退出当前函数的调用
      * 回调函数中返回0则代表ffmpeg内部继续执行耗时操作，直到完成既定的任务(比如读取到既定的数据包)
      */
-    // ic->interrupt_callback.callback = decode_interrupt_cb;
-    // ic->interrupt_callback.opaque = is;
+    ic->interrupt_callback.callback = &FFPlayer::decode_interrupt_cb;
+    ic->interrupt_callback.opaque = this;
+
     //特定选项处理
     // if (!av_dict_get(format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
     //     av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
     //     scan_all_pmts_set = 1;
     // }
+
+
+    RestTimeout();
     /* 3.打开文件，主要是探测协议类型，如果是网络文件则创建网络链接等 */
     err = avformat_open_input(&ic, input_filename_, NULL, NULL);
     if (err < 0) {
@@ -1117,6 +1142,7 @@ int FFPlayer::read_thread()
         ret = -1;
         goto fail;
     }
+
     msg_queue_.get()->notify_msg(FFP_MSG_OPEN_INPUT);
     //LOG(INFO) << "read_thread FFP_MSG_OPEN_INPUT " << this ;
     if (seek_by_bytes < 0) {
@@ -1129,6 +1155,7 @@ int FFPlayer::read_thread()
      * codecpar, filled by libavformat on stream creation or
      * in avformat_find_stream_info()
      */
+
     err = avformat_find_stream_info(ic, NULL);
     if (err < 0) {
         av_log(NULL, AV_LOG_WARNING,
@@ -1139,6 +1166,7 @@ int FFPlayer::read_thread()
     msg_queue_.get()->notify_msg( FFP_MSG_FIND_STREAM_INFO);
     LOG(INFO) << "read_thread FFP_MSG_FIND_STREAM_INFO " << this ;
     realtime = is_realtime(ic); //实时流
+
     av_dump_format(ic, 0, input_filename_, 0);
     // 6.2 利用av_find_best_stream选择流，
     st_index[AVMEDIA_TYPE_VIDEO] =
@@ -1214,7 +1242,7 @@ int FFPlayer::read_thread()
             eof = 0;
             msg_queue_.get()->notify_msg(FFP_MSG_SEEK_COMPLETE);
         }
-        /* if the queue are full, no need to read more */
+        /* if the queue are full, no need to read more  */
         if (infinite_buffer < 1 &&
                 (audioq.size + videoq.size  > MAX_QUEUE_SIZE
                  || (stream_has_enough_packets(audio_st, audio_stream, &audioq) &&
@@ -1223,6 +1251,7 @@ int FFPlayer::read_thread()
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
+        RestTimeout();
         // 7.读取媒体数据，得到的是音视频分离后、解码前的数据
         ret = av_read_frame(ic, pkt); // 调用不会释放pkt的数据，需要我们自己去释放packet的数据
         if(ret < 0) { // 出错或者已经读取完毕了
@@ -1237,6 +1266,8 @@ int FFPlayer::read_thread()
                 eof = 1;
             }
             if (ic->pb && ic->pb->error) { // io异常 // 退出循环
+                std::string error = "url连接断开,请检查网络。";
+                msg_queue_->notify_msg(FFP_MSG_NETWORK_URL_ERROR,0,0,error.data(),error.length());
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));     // 读取完数据了，这里可以使用timeout的方式休眠等待下一步的检测
@@ -1273,7 +1304,7 @@ int FFPlayer::video_refresh_thread()
              (!paused  // 非暂停状态
               || force_refresh) // 强制刷新状态
              )
-            video_refresh(&remaining_time);
+             video_refresh(&remaining_time);
     }
     //LOG(INFO) <<  " leave" ;
     return 0;
@@ -1833,6 +1864,7 @@ int Decoder::audio_thread(void *arg)
         if ((got_frame = decoder_decode_frame(frame)) < 0) { // 是否获取到一帧数据
             goto the_end;    // < =0 abort
         }
+
         //        LOG(INFO) << avctx_->codec->name << " packet size: " << queue_->size << " frame size: " << pictq.size << ", pts: " << frame->pts ;
         if (got_frame) {
             tb = AVRational {

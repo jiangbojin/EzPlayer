@@ -8,9 +8,7 @@
 #include<messagequeue.h>
 #include<commonlooper.h>
 
-//opengl渲染测试
-#include<QOpenGLWidget>
-#include<yuv420p_render.h>
+
 namespace Ui
 {
 class HomeWindow;
@@ -21,14 +19,17 @@ class HomeWindow : public QMainWindow , public CommonLooper
     Q_OBJECT
 private:
     Ui::HomeWindow* ui;
+
     //消息队列
     std::shared_ptr<MessageQueue> msg_queue_ = nullptr;
 
     bool is_show_file_list_ = true;     // 是否显示文件列表，默认显示
     std::shared_ptr<IjkMediaPlayer> mp_ = nullptr;
 
+    //OPENGL测试
 
-
+    //url相关
+    std::string url;
     //播放相关的信息
     // 当前文件播放的总长度,单位为ms
     long total_duration_ = 0;
@@ -45,18 +46,21 @@ private:
 
 
     // 缓存统计
-    int max_cache_duration_ = 400;  // 默认200ms
-    int network_jitter_duration_ = 100; // 默认100ms
-    float accelerate_speed_factor_ = 1.5; //默认加速是1.2
-    float normal_speed_factor_ = 1.0;     // 正常播放速度1.0
-    bool  is_accelerate_speed_ = false;
+    int max_cache_duration_ = 1000;          // 默认200ms
+    int network_jitter_duration_ = 100;     // 默认100ms
+    float accelerate_speed_factor_ = 1.5;   //默认加速是1.2
+    float normal_speed_factor_ = 1.0;       // 正常播放速度1.0
+    bool  is_accelerate_speed_ = false;     //直播流
 
     // 缓存长度
     int64_t audio_cache_duration = 0;
     int64_t video_cache_duration = 0;
     int64_t pre_get_cache_time_ = 0;
-    int real_time_ = 1;  //值1变速播放 ，否则直播流
+    int real_time_ = 0;  //值1 直播流支持变速播放
+    int queue_cache =1000; //缓存上限
+    int queue_shake =100; //抖动区间
 
+    int network_timeout=5;
     // 码率
     int64_t audio_bitrate_duration = 0;
     int64_t video_bitrate_duration = 0;
@@ -64,7 +68,7 @@ private:
     int InitSignalsAndSlots();
 
     //硬件解码
-    std::string hw_decode;
+    std::string hw_decode =  "未选择";
 
 
 public:
@@ -148,6 +152,10 @@ private slots:
     //一键禁音
     void on_audio_muted_clicked(bool checked);
 
+    void on_settingBtn_clicked();
+
+    void on_pushButton_clicked(bool checked);
+
 private:
 
     void startTimer();
@@ -172,10 +180,14 @@ public:
     void reqUpdateCacheDuration();
 
 
-
+    //设置为直播模式
+    int set_Accelerate_Real_time(bool flag);
 public slots:
     //硬件加速更改
     void on_updateHW_DecodeType(const QString &data);
+    //网络流最大连接时长
+    void on_updateNetWork_TIMEOUT(const QString &data);
+
 };
 
 #endif // HOMEWINDOW_H
