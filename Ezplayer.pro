@@ -9,7 +9,7 @@ QT += opengl
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 
-TARGET = 0voice_palyer
+TARGET = Ezplayer
 TEMPLATE = app
 CONFIG +=   c++17
 # The following define makes your compiler emit warnings if you use
