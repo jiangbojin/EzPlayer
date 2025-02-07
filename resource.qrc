@@ -24,8 +24,6 @@
         <file>res/screenBtn.png</file>
         <file>res/prevBtn.png</file>
         <file>res/nextBtn.png</file>
-        <file>fragment.fsh</file>
-        <file>vertex.vsh</file>
         <file>res/qss/grey.css</file>
     </qresource>
 </RCC>

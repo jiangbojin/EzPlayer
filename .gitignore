@@ -1,27 +1,60 @@
-# Visual Studio files
+# 忽略 Qt Creator 的用户配置文件
+*.pro.user
 .vs/
-*.vcxproj
-*.vcxproj.filters
-*.vcxproj.user
-*.qtvscr
-
-# Build and log files
+# 忽略编译生成的文件夹
 build/
+debug/
+release/
+
+# 忽略 Visual Studio Code 的配置文件夹
+.vscode/
+
+# 忽略 Qt 编译生成的文件
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exp
+*.pdb
+*.user
+*.suo
+
+# 忽略 Qt 的临时文件
+*.qmake.stash
+Makefile
+Makefile.*
+*.qrc
+*.moc
+*.gch
+
+# 忽略日志文件
+log/
 *.log
 
-# Qt-related files
-*.qmake.stash
+# 忽略自动生成的 UI 和资源文件
 ui_*.h
+qrc_*.cpp
 
-# Other files
-*.exe
-*.dll
-*.pdb
-*.ilk
-*.obj
-*.suo
-*.user
-*.opendb
-*.db
-*.db-shm
-*.db-wal
+# 忽略临时文件
+*.tmp
+*.temp
+*.bak
+
+# 忽略特定的编译工具文件夹
+ffmpeg-4.2.1-win32-dev/
+ffmpeg6.0/
+SDL2/
+
+# 忽略特定的编译生成文件
+Ezplayer.vcxproj
+Ezplayer.vcxproj.filters
+Ezplayer.vcxproj.user
+
+# 忽略特定的资源文件
+favicon.ico
+*.png
+
+# 忽略特定的自动生成文件
+Ezplayer.qtvscr

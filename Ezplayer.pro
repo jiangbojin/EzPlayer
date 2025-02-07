@@ -9,32 +9,26 @@ QT += opengl
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 
-TARGET = 0voice_palyer
+TARGET = Ezplayer
 TEMPLATE = app
 CONFIG +=   c++17
-# The following define makes your compiler emit warnings if you use
-# any feature of Qt which has been marked as deprecated (the exact warnings
-# depend on your compiler). Please consult the documentation of the
-# deprecated API in order to know how to port your code away from it.
+
 DEFINES += QT_DEPRECATED_WARNINGS
+#EasyLogging++兼容性，安全性。
+DEFINES += ELPP_THREAD_SAFE \
+           ELPP_FEATURE_CRASH_LOG \
+           ELPP_STL_LOGGING
+#解决ui改动未改变，使用缓存ui问题。
+UI_DIR=$$PWD/
+
 
 RC_ICONS = player.ico
-
-# You can also make your code fail to compile if you use deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
 SOURCES += \
  homewindow.cpp \
     commonlooper.cpp \
     imagescaler.cpp \
-    librtmp/amf.c \
-    librtmp/hashswf.c \
-    librtmp/log.c \
-    librtmp/parseurl.c \
-    librtmp/rtmp.c \
         main.cpp \
     ff_ffplay.cpp \
     ff_ffplay_def.cpp \
@@ -45,8 +39,6 @@ SOURCES += \
     medialist.cpp \
     messagequeue.cpp \
     playlist.cpp \
-    rtmpbase.cpp \
-    rtmpplayer.cpp \
     urldialog.cpp \
     customslider.cpp \
     sonic.cpp \
@@ -59,16 +51,6 @@ SOURCES += \
 HEADERS += \
     commonlooper.h \
         homewindow.h \
-    librtmp/amf.h \
-    librtmp/bytes.h \
-    librtmp/dh.h \
-    librtmp/dhgroups.h \
-    librtmp/handshake.h \
-    librtmp/http.h \
-    librtmp/librtmp.3 \
-    librtmp/log.h \
-    librtmp/rtmp.h \
-    librtmp/rtmp_sys.h \
     mediabase.h \
     medialist.h \
     ff_ffplay.h \
@@ -81,8 +63,6 @@ HEADERS += \
     globalhelper.h \
     messagequeue.h \
     playlist.h \
-    rtmpbase.h \
-    rtmpplayer.h \
     urldialog.h \
     customslider.h \
     sonic.h \
@@ -118,7 +98,6 @@ LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86\WinMM.Li
 LIBS += -lOle32
 }
 
-UI_DIR=$$PWD/
 RESOURCES += \
     resource.qrc
 
@@ -126,10 +105,4 @@ RESOURCES += \
 QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
 QMAKE_LFLAGS_RELEASE = $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
 
-DISTFILES += \
-    fragment.fsh \
-    librtmp/COPYING \
-    librtmp/Makefile \
-    librtmp/librtmp.3.html \
-    librtmp/librtmp.pc.in \
-    vertex.vsh
+

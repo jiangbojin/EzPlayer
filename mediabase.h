@@ -28,14 +28,7 @@ extern "C"{
 #include <stdlib.h>
 #include <ctype.h>
 
-#include "librtmp/rtmp.h"
 }
-
-class mediabase
-{
-public:
-    mediabase();
-};
 
 
 
@@ -885,25 +878,25 @@ public:
     int64_t pts_ = 0;         // 时间戳
 };
 
-// RTMP数据包消息类
-class MsgRTMPPPack : MsgBaseObj
-{
-public:
-    RTMPPacket *rtmpPack = NULL;// RTMP包指针
-    MsgRTMPPPack(RTMPPacket& pack)
-    {
-        rtmpPack = (RTMPPacket *)malloc(sizeof(RTMPPacket));
-        memcpy(rtmpPack,&pack,sizeof(RTMPPacket));
-    }
-    virtual ~MsgRTMPPPack()
-    {
-        if(rtmpPack)
-        {
-            RTMPPacket_Free(rtmpPack);
-            rtmpPack = NULL;
-        }
-    }
-};
+// // RTMP数据包消息类
+// class MsgRTMPPPack : MsgBaseObj
+// {
+// public:
+//     RTMPPacket *rtmpPack = NULL;// RTMP包指针
+//     MsgRTMPPPack(RTMPPacket& pack)
+//     {
+//         rtmpPack = (RTMPPacket *)malloc(sizeof(RTMPPacket));
+//         memcpy(rtmpPack,&pack,sizeof(RTMPPacket));
+//     }
+//     virtual ~MsgRTMPPPack()
+//     {
+//         if(rtmpPack)
+//         {
+//             RTMPPacket_Free(rtmpPack);
+//             rtmpPack = NULL;
+//         }
+//     }
+// };
 
 // 用来debug rtmp拉流的关键时间点
 class AVPlayTime

@@ -171,8 +171,7 @@ public:
     int read_thread();
 
     std::unique_ptr<std::thread> read_thread_;
-    //rtmp推拉
-    //std::unique_ptr<RTMPPlayer> rtmp_player_;
+
 
     int video_refresh_thread();
     void video_refresh(double *remaining_time);
