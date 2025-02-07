@@ -1,5 +1,9 @@
 ﻿#include "screenshot.h"
 #include "easylogging++.h"
+
+extern "C" {
+    #include <libavcodec/avcodec.h>
+}
 AVFrame *allocate_sws_frame(AVCodecContext *enc_ctx)
 {
     int ret = 0;
@@ -134,6 +138,7 @@ int ScreenShot::SaveJpeg(AVFrame *src_frame, const char *file_name, int jpeg_qua
         ret = sws_scale(img_convert_ctx, (const uint8_t **) src_frame->data, src_frame->linesize, 0, src_frame->height,
                         picture->data, picture->linesize);
         picture->pts = 0;
+
         ret = avcodec_encode_video2(enc_ctx, pkt, picture, &got_picture);
     }
     else

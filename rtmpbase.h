@@ -1,10 +1,7 @@
 #ifndef RTMPBASE_H
 #define RTMPBASE_H
 #include <iostream>
-extern "C"
-{
-    #include "librtmp/rtmp.h"
-}
+
 enum RTMP_BASE_TYPE
 {
     RTMP_BASE_TYPE_UNKNOW,
@@ -39,7 +36,7 @@ private:
     bool initRtmp();
     RTMP_BASE_TYPE rtmp_obj_type_;
 protected:
-    RTMP* rtmp_;
+
     std::string url_;
     bool enable_video_;      //是否打开视频
     bool enable_audio_;      //是否打开音频

@@ -140,6 +140,9 @@ void HomeWindow::initUi()
  */
 int HomeWindow::InitSignalsAndSlots()
 {
+
+
+
     //播放文件
     connect(ui->playList, &Playlist::SigPlay, this, &HomeWindow::play); //绑定列表选的的文件播放
     //被动停止
@@ -651,6 +654,7 @@ int HomeWindow::set_Accelerate_Real_time(bool flag){
     network_timeout=5;
     queue_cache =1000; //缓存上限
     queue_shake =100; //抖动区间
+    return 0;
 }
 bool HomeWindow::play(std::string url)
 {

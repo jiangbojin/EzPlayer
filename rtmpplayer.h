@@ -41,7 +41,7 @@ public:
     virtual void Loop() override;
 private:
 
-    void parseScriptTag(RTMPPacket &packet);
+
     bool request_exit_thread_ = false;
     std::thread *worker_ = NULL;
     std::function<void(int what, MsgBaseObj *data, bool flush)> audio_info_callback_ = NULL;
@@ -90,8 +90,6 @@ private:
     int64_t cur_time = 0
             ,pre_time=0;
 
-
-    void processVideoPacket(RTMPPacket&);
     bool reconnectIfNeeded();
 };
 

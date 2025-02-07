@@ -7,7 +7,7 @@
 #include "ijkmediaplayer.h"
 #include<messagequeue.h>
 #include<commonlooper.h>
-
+#include"deepseekclient.h"
 
 namespace Ui
 {

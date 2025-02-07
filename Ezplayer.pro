@@ -6,6 +6,7 @@
 
 QT       += core gui
 QT += opengl
+QT       += network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 
@@ -18,14 +19,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 DEFINES += ELPP_THREAD_SAFE \
            ELPP_FEATURE_CRASH_LOG \
            ELPP_STL_LOGGING
-#解决ui改动未改变，使用缓存ui问题。
-UI_DIR=$$PWD/
 
 
 RC_ICONS = player.ico
 
 
 SOURCES += \
+    deepseekclient.cpp \
  homewindow.cpp \
     commonlooper.cpp \
     imagescaler.cpp \
@@ -50,6 +50,7 @@ SOURCES += \
 
 HEADERS += \
     commonlooper.h \
+    deepseekclient.h \
         homewindow.h \
     mediabase.h \
     medialist.h \
@@ -73,6 +74,7 @@ HEADERS += \
     widget.h
 
 FORMS += \
+    deepseekclient.ui \
         homewindow.ui \
     displaywind.ui \
     playlist.ui \
@@ -81,6 +83,7 @@ FORMS += \
 
 win32 {
 INCLUDEPATH += $$PWD/ffmpeg-4.2.1-win32-dev/include
+INCLUDEPATH += $$PWD/openssl/win32/include
 INCLUDEPATH += $$PWD/SDL2/include
 INCLUDEPATH += $$PWD/log
 LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
@@ -93,10 +96,20 @@ LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
         $$PWD/ffmpeg-4.2.1-win32-dev/lib/swscale.lib    \
         $$PWD/SDL2/lib/x86/SDL2.lib \
 
+
+
 LIBS += "D:\VS\Qt\Tools\mingw810_32\i686-w64-mingw32\lib\libws2_32.a"
 LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86\WinMM.Lib"
-LIBS += -lOle32
+
+
+
+
+LIBS += -lws2_32 -lOle32 -lWinMM
 }
+
+
+#解决ui改动未改变，使用缓存ui问题。
+UI_DIR=$$PWD/
 
 RESOURCES += \
     resource.qrc

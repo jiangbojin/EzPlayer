@@ -5,6 +5,9 @@
 #include "ffmsg.h"
 #include "sonic.h"
 #include "screenshot.h"
+extern "C" {
+    #include "libavutil/frame.h"
+}
 
 #include "easylogging++.h"
 //#define LOG(INFO) std::cout
@@ -372,7 +375,8 @@ static int audio_decode_frame(FFPlayer *is)
         frame_queue_next(&is->sampq);  // 不同序列的出队列
     } while (af->serial != is->audioq.serial); // 这里容易出现af->serial != audioq.serial 一直循环
     // 2.根据frame中指定的音频参数获取缓冲区的大小 af->frame->channels * af->frame->nb_samples * 2
-    data_size = av_samples_get_buffer_size(NULL, av_frame_get_channels(af->frame),
+    //6.0  af->frame->ch_layout.nb_channels
+    data_size = av_samples_get_buffer_size(NULL,av_frame_get_channels(af->frame),
                                            af->frame->nb_samples,
                                            (enum AVSampleFormat)af->frame->format, 1);
     // 获取声道布局
@@ -1084,8 +1088,8 @@ static int is_realtime(AVFormatContext * s)
           ) {
         return 1;
     }
-    if(s->pb && (   !strncmp(s->filename, "rtp:", 4)
-                    || !strncmp(s->filename, "udp:", 4)
+    if(s->pb && (   !strncmp(s->url, "rtp:", 4)
+                    || !strncmp(s->url, "udp:", 4)
                     )
             ) {
         return 1;
@@ -1222,7 +1226,7 @@ int FFPlayer::read_thread()
             ret = avformat_seek_file(ic, -1, seek_min, seek_target, seek_max,  seek_flags);
             if (ret < 0) {
                 av_log(NULL, AV_LOG_ERROR,
-                       "%s: error while seeking\n",  ic->filename);
+                       "%s: error while seeking\n",  ic->url);
             } else {
                 //冲洗
                 /* seek的时候，要把原先的数据情况，并重启解码器，put flush_pkt的目的是告知解码线程需要
