@@ -44,31 +44,98 @@ bool Playlist::Init()
 ///
 bool Playlist::InitUi()
 {
-
-    //ui->List->hide();
-    //this->setFixedWidth(ui->HideOrShowBtn->width());
-    //GlobalHelper::SetIcon(ui->HideOrShowBtn, 12, QChar(0xf104));
     ui->List->clear();
     QStringList strListPlaylist;
-    //保存在配置文件中的播放列表
     GlobalHelper::GetPlaylist(strListPlaylist);
-    //遍历播放列表中的每个视频文件路径,并为每个文件创建一个 QListWidgetItem 对象。
+
+    // 设置样式表
+    QString styleSheet = R"(
+        QTabWidget {
+            background-color: #ffffff;
+        }
+        QTabWidget::pane {
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            background: white;
+        }
+        QTabBar::tab {
+            background: #f5f5f5;
+            color: #666666;
+            padding: 8px 16px;
+            border: 1px solid #e8e8e8;
+            border-bottom: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            min-width: 80px;
+        }
+        QTabBar::tab:selected {
+            background: white;
+            color: #4a90e2;
+            border-bottom: 2px solid #4a90e2;
+        }
+        QTabBar::tab:hover:!selected {
+            background: #fafafa;
+            color: #40a9ff;
+        }
+        MediaList {
+            background-color: #ffffff;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            padding: 4px;
+            outline: none;
+        }
+        MediaList::item {
+            color: #333333;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 2px 4px;
+        }
+        MediaList::item:hover {
+            background: #f5f5f5;
+        }
+        MediaList::item:selected {
+            background: #e6f7ff;
+            color: #4a90e2;
+            border: none;
+        }
+        QScrollBar:vertical {
+            border: none;
+            background: #f5f5f5;
+            width: 8px;
+            border-radius: 4px;
+        }
+        QScrollBar::handle:vertical {
+            background: #ccc;
+            border-radius: 4px;
+            min-height: 20px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background: #999;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            background: none;
+        }
+    )";
+    this->setStyleSheet(styleSheet);
+
     for (QString strVideoFile : strListPlaylist) {
         QFileInfo fileInfo(strVideoFile);
-        //        if (fileInfo.exists())
         {
             QListWidgetItem *pItem = new QListWidgetItem(ui->List);
-            pItem->setData(Qt::UserRole, QVariant(fileInfo.filePath()));  // 用户数据  mp4裸数据
-            pItem->setText(QString("%1").arg(fileInfo.fileName()));  // 显示文本  xxx.mp4
-            pItem->setToolTip(fileInfo.filePath()); //设置辅助提示
+            pItem->setData(Qt::UserRole, QVariant(fileInfo.filePath()));  // 用户数据
+            pItem->setText(fileInfo.fileName());  // 显示文本
+            pItem->setToolTip(fileInfo.filePath()); // 完整路径提示
             ui->List->addItem(pItem);
         }
     }
-    //设置默认文件
+
     if (strListPlaylist.length() > 0) {
         ui->List->setCurrentRow(0);
     }
-    //ui->List->addItems(strListPlaylist);
+
     return true;
 }
 
