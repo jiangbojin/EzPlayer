@@ -58,7 +58,26 @@
       <layout class="QGridLayout" name="gridLayout_4">
        <item row="0" column="0">
         <layout class="QGridLayout" name="gridLayout_2">
-         <item row="0" column="12">
+         <item row="0" column="11">
+          <widget class="QPushButton" name="screenBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>截屏</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="13">
           <widget class="QPushButton" name="speedBtn">
            <property name="maximumSize">
             <size>
@@ -71,7 +90,7 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="13">
+         <item row="0" column="14">
           <widget class="QPushButton" name="displayRatioBtn">
            <property name="minimumSize">
             <size>
@@ -87,25 +106,6 @@
            </property>
            <property name="text">
             <string>16:9</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="3">
-          <widget class="QPushButton" name="backFastBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>快退</string>
            </property>
           </widget>
          </item>
@@ -128,8 +128,8 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="11">
-          <widget class="QPushButton" name="screenBtn">
+         <item row="0" column="7">
+          <widget class="QPushButton" name="forwardFastBtn">
            <property name="minimumSize">
             <size>
              <width>40</width>
@@ -143,7 +143,45 @@
             </size>
            </property>
            <property name="text">
-            <string>截屏</string>
+            <string>快进</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="15">
+          <widget class="QPushButton" name="pushButton">
+           <property name="minimumSize">
+            <size>
+             <width>65</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>65</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>切换风格</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="3">
+          <widget class="QPushButton" name="backFastBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>快退</string>
            </property>
           </widget>
          </item>
@@ -167,46 +205,11 @@
              <height>30</height>
             </size>
            </property>
+           <property name="styleSheet">
+            <string notr="true">background-color:none;</string>
+           </property>
            <property name="text">
             <string>stop</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="2">
-          <widget class="QPushButton" name="prevBtn">
-           <property name="minimumSize">
-            <size>
-             <width>50</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>50</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>前一集</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="7">
-          <widget class="QPushButton" name="forwardFastBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>快进</string>
            </property>
           </widget>
          </item>
@@ -229,22 +232,44 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="14">
-          <widget class="QPushButton" name="pushButton">
+         <item row="0" column="2">
+          <widget class="QPushButton" name="prevBtn">
            <property name="minimumSize">
             <size>
-             <width>65</width>
+             <width>50</width>
              <height>30</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>65</width>
+             <width>50</width>
              <height>30</height>
             </size>
            </property>
            <property name="text">
-            <string>切换风格</string>
+            <string>前一集</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="12">
+          <widget class="QPushButton" name="full_screen_btn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>全屏</string>
            </property>
           </widget>
          </item>

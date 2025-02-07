@@ -73,10 +73,133 @@ void HomeWindow::initUi()
     }
 #endif
 
-    //加载样式
+    // 设置控制栏样式
+    QString ctrlBarStyle = R"(
+        QWidget#ctrlBar {
+            background-color: #ffffff;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        /* 进度条样式 */
+        CustomSlider::groove:horizontal {
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+        }
+        CustomSlider::handle:horizontal {
+            width: 12px;
+            height: 12px;
+            margin: -4px 0;
+            border-radius: 6px;
+            background: #45b0c4;
+        }
+        CustomSlider::sub-page:horizontal {
+            background: #45b0c4;
+            border-radius: 2px;
+        }
+        CustomSlider::handle:horizontal:hover {
+            background: #6bc3ce;
+        }
+
+        /* 图标按钮样式 */
+        #playOrPauseBtn, #stopBtn, #prevBtn, #nextBtn, 
+        #backFastBtn, #forwardFastBtn, #full_screen_btn,#screenBtn, #audio_muted {
+            background: transparent;
+            border: none;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        #playOrPauseBtn:hover, #stopBtn:hover, #full_screen_btn,#prevBtn:hover, #nextBtn:hover,
+        #backFastBtn:hover, #forwardFastBtn:hover, #screenBtn:hover, #audio_muted:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        #playOrPauseBtn:pressed, #stopBtn:pressed,#full_screen_btn, #prevBtn:pressed, #nextBtn:pressed,
+        #backFastBtn:pressed, #forwardFastBtn:pressed, #screenBtn:pressed, #audio_muted:pressed {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* 文本按钮样式 */
+        #speedBtn, #displayRatioBtn {
+            background: #f5f5f5;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            color: #666666;
+            padding: 4px 8px;
+        }
+        #speedBtn:hover, #displayRatioBtn:hover {
+            background: #fafafa;
+            border-color: #45b0c4;
+            color: #45b0c4;
+        }
+        #speedBtn:pressed, #displayRatioBtn:pressed {
+            background: #f0f0f0;
+        }
+
+        /* 标签样式 */
+        QLabel {
+            color: #333333;
+        }
+        QLabel#curPosition, QLabel#totalDuration {
+            color: #666666;
+            font-family: "Microsoft YaHei";
+        }
+
+        /* 音量滑块样式 */
+        #volumeSlider::groove:horizontal {
+            height: 3px;
+            background: #e0e0e0;
+            border-radius: 1.5px;
+        }
+        #volumeSlider::handle:horizontal {
+            width: 10px;
+            height: 10px;
+            margin: -4px 0;
+            border-radius: 5px;
+            background: #45b0c4;
+        }
+        #volumeSlider::sub-page:horizontal {
+            background: #45b0c4;
+            border-radius: 1.5px;
+        }
+
+        /* 下拉框样式 */
+        QComboBox {
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            background: white;
+            color: #333333;
+            padding: 4px 8px;
+        }
+        QComboBox:hover {
+            border-color: #45b0c4;
+        }
+        QComboBox QAbstractItemView {
+            background: white;
+            color: #333333;
+            selection-background-color: #e6f7ff;
+            selection-color: #45b0c4;
+        }
+
+        /* 输入框样式 */
+        QLineEdit {
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            background: white;
+            color: #333333;
+            padding: 4px 8px;
+        }
+        QLineEdit:focus {
+            border-color: #45b0c4;
+        }
+    )";
+
+    ui->ctrlBar->setStyleSheet(ctrlBarStyle);
+
+    // 加载全局样式
     QString qss = GlobalHelper::GetQssStr(":/res/qss/grey.css");
     setStyleSheet(qss);
 
+    // 设置按钮文本为空
     ui->playOrPauseBtn->setText("");
     ui->stopBtn->setText("");
     ui->backFastBtn->setText("");
@@ -84,38 +207,33 @@ void HomeWindow::initUi()
     ui->screenBtn->setText("");
     ui->prevBtn->setText("");
     ui->nextBtn->setText("");
-    ui->playOrPauseBtn->setStyleSheet("background-color:transparent;");
-    ui->stopBtn->setStyleSheet("background-color:transparent;");
-    ui->backFastBtn->setStyleSheet("background-color:transparent;");
-    ui->forwardFastBtn->setStyleSheet("background-color:transparent;");
-    ui->screenBtn->setStyleSheet("background-color:transparent;");
-    ui->prevBtn->setStyleSheet("background-color:transparent;");
-    ui->nextBtn->setStyleSheet("background-color:transparent;");
+    ui->full_screen_btn->setText("");
 
-
+    // 设置图标和大小
     QSize sz(30,30);
-    //播放
     ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
-    ui->playOrPauseBtn->setIconSize(QSize (29,29));
-
-    //停止
+    ui->playOrPauseBtn->setIconSize(QSize(29,29));
+    
     ui->stopBtn->setIcon(QIcon(":/res/stop.png"));
-    ui->stopBtn->setIconSize(QSize (29,29));
-    //快进快退
-
+    ui->stopBtn->setIconSize(QSize(29,29));
+    
     ui->backFastBtn->setIcon(QIcon(":/res/backFastBtn.png"));
     ui->backFastBtn->setIconSize(sz);
+    
     ui->forwardFastBtn->setIcon(QIcon(":/res/forwardFastBtn.png"));
     ui->forwardFastBtn->setIconSize(sz);
-    //下一集
+    
     ui->prevBtn->setIcon(QIcon(":/res/prevBtn.png"));
     ui->prevBtn->setIconSize(sz);
+
+    ui->full_screen_btn->setIcon(QIcon(":/res/fullscreen.png"));
+    ui->full_screen_btn->setIconSize(sz);
+
     ui->nextBtn->setIcon(QIcon(":/res/nextBtn.png"));
     ui->nextBtn->setIconSize(sz);
-    //截图
+    
     ui->screenBtn->setIcon(QIcon(":/res/screenBtn.png"));
     ui->screenBtn->setIconSize(QSize(28,28));
-
 
     //硬件解码
     ui->cbx_hwdecode->clear();
@@ -1043,8 +1161,13 @@ void HomeWindow::on_pushButton_clicked(bool checked)
 {
     static bool isDark = true;
     isDark = !isDark;
-    QFile file(isDark ? ":/res/qss/grey.css" : ":/res/qss/homewindow.css");
+    QFile file(isDark ? ":/res/qss/homewindow.css": ":/res/qss/grey.css");
     file.open(QFile::ReadOnly);
     setStyleSheet(file.readAll());
+}
+
+void HomeWindow::on_pushButton_clicked()
+{
+
 }
 
