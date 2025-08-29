@@ -101,19 +101,19 @@ void HomeWindow::initUi()
             background: #6bc3ce;
         }
 
-        /* 图标按钮样式 */
+        /* 图标按钮样式  #full_screen_btn,*/
         #playOrPauseBtn, #stopBtn, #prevBtn, #nextBtn, 
-        #backFastBtn, #forwardFastBtn, #full_screen_btn,#screenBtn, #audio_muted {
+        #backFastBtn, #forwardFastBtn, #screenBtn, #audio_muted {
             background: transparent;
             border: none;
             padding: 4px;
             border-radius: 4px;
         }
-        #playOrPauseBtn:hover, #stopBtn:hover, #full_screen_btn,#prevBtn:hover, #nextBtn:hover,
+        #playOrPauseBtn:hover, #stopBtn:hover,#prevBtn:hover, #nextBtn:hover,
         #backFastBtn:hover, #forwardFastBtn:hover, #screenBtn:hover, #audio_muted:hover {
             background: rgba(0, 0, 0, 0.05);
         }
-        #playOrPauseBtn:pressed, #stopBtn:pressed,#full_screen_btn, #prevBtn:pressed, #nextBtn:pressed,
+        #playOrPauseBtn:pressed, #stopBtn:pressed, #prevBtn:pressed, #nextBtn:pressed,
         #backFastBtn:pressed, #forwardFastBtn:pressed, #screenBtn:pressed, #audio_muted:pressed {
             background: rgba(0, 0, 0, 0.1);
         }
@@ -207,7 +207,7 @@ void HomeWindow::initUi()
     ui->screenBtn->setText("");
     ui->prevBtn->setText("");
     ui->nextBtn->setText("");
-    ui->full_screen_btn->setText("");
+    //ui->full_screen_btn->setText("");
 
     // 设置图标和大小
     QSize sz(30,30);
@@ -226,8 +226,8 @@ void HomeWindow::initUi()
     ui->prevBtn->setIcon(QIcon(":/res/prevBtn.png"));
     ui->prevBtn->setIconSize(sz);
 
-    ui->full_screen_btn->setIcon(QIcon(":/res/fullscreen.png"));
-    ui->full_screen_btn->setIconSize(sz);
+    // ui->full_screen_btn->setIcon(QIcon(":/res/fullscreen.png"));
+    // ui->full_screen_btn->setIconSize(sz);
 
     ui->nextBtn->setIcon(QIcon(":/res/nextBtn.png"));
     ui->nextBtn->setIconSize(sz);
@@ -592,7 +592,7 @@ void HomeWindow::getTotalDuration()
 void HomeWindow::reqUpdateCurrentPosition()
 {
     int64_t cur_time = get_ms();
-    if(cur_time - pre_get_cur_pos_time_ > 500) {
+    if(cur_time - pre_get_cur_pos_time_ > 100) {
         pre_get_cur_pos_time_ = cur_time;
         // 播放器启动,并且不是请求seek的时候才去读取最新的播放位置
         //         LOG(INFO) << "reqUpdateCurrentPosition ";
@@ -781,9 +781,6 @@ bool HomeWindow::play(std::string url)
     if(mp_) {
         stop();
     }
-
-
-
     // 1. 先检测mp是否已经创建
     if(!msg_queue_)
         msg_queue_ = std::make_shared<MessageQueue>();
@@ -791,14 +788,12 @@ bool HomeWindow::play(std::string url)
     //ijk
     mp_ = std::make_shared<IjkMediaPlayer>(msg_queue_);
 
-
     //1.1 创建ffplay
     ret = mp_->ijk_init();
     if(ret < 0) {
         LOG(ERROR) << "IjkMediaPlayer create failed";
         return false;
     }
-
     //视频刷新回调 display
     mp_->AddVideoRefreshCallback(std::bind(&HomeWindow::OutputVideo, this,
                                            std::placeholders::_1));
@@ -891,34 +886,23 @@ void HomeWindow::on_volumeSliderValueChanged(int value)
 /// @return 
 bool HomeWindow::stop()
 {
-
     if(!mp_)
         return false;
-
     stopTimer();
-
-
     if(real_time_){
         set_Accelerate_Real_time(false);
     }
-
     //消息队列和ffplay标志位退出
     mp_->ijkmp_stop();
     //消息事件停止
     this->Stop();
-
     //mp_->Get_ffplayer()->stream_close();
     mp_->ijk_destroy();
-
     mp_.reset();
-
-
-
 
     ui->display->StopPlay();        // 停止渲染，后续刷黑屏
     ui->playOrPauseBtn->setIcon(QIcon(":/res/pause.png"));
     ui->playOrPauseBtn->setIconSize(QSize(30,30));
-
 
     ///消息队列已经停止 开始清空消息
     if(!msg_queue_)
@@ -926,8 +910,6 @@ bool HomeWindow::stop()
     //消息队列清空
     msg_queue_->msg_queue_destroy();
     msg_queue_.reset();
-
-
 
     return true;
 }

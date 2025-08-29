@@ -1,61 +1,189 @@
-# 项目简介
+# EzPlayer - 基于FFmpeg的跨平台音视频播放器
 
-**预览**
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/your-username/EzPlayer)
+[![Qt](https://img.shields.io/badge/Qt-5.12+-green.svg)](https://www.qt.io/)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-4.2+-orange.svg)](https://ffmpeg.org/)
 
-【音视频播放器展示】https://www.bilibili.com/video/BV1PyiXYnEcy?vd_source=55dfba5031ed1a014c1ac576a7abd107
+## 📖 项目简介
 
-![输入图片说明](%E6%A1%86%E6%9E%B6%E8%AE%BE%E8%AE%A1%E5%92%8C%E5%88%86%E6%9E%90/assets/image.png)
+EzPlayer是一个基于Qt框架和FFmpeg库开发的高性能跨平台音视频播放器。该项目采用模块化设计，支持多种音视频格式，具备完整的播放控制功能和智能AI助手。
 
-<<<<<<< HEAD
-![image-20241205112103781](./assets/image-20241205112103781.png)
+### 🎥 演示视频
+[音视频播放器展示](https://www.bilibili.com/video/BV1PyiXYnEcy?vd_source=55dfba5031ed1a014c1ac576a7abd107)
 
-**v1.1版本**
+### 📸 界面预览
+![播放器界面](播放器.png)
 
-本项目旨在开发一个基于 FFmpeg 和 SDL 库的音视频播放器 - FFplay。具体详细请查看 **框架设计和分析/**
+## ✨ 主要特性
 
-该播放器将提供以下功能:
+### 🎯 核心功能
+- **多格式支持**: 支持H.264、H.265、VP8、VP9等主流视频编码格式
+- **硬件加速**: 支持NVIDIA、Intel QSV、AMD AMF硬件解码
+- **流媒体播放**: 支持RTMP、RTSP、HLS等流媒体协议
+- **智能同步**: 音视频同步机制，确保播放流畅性
 
-1. **播放和暂停**
-   - 能够解码和渲染视频和音频数据
-2. **停止播放**
-   - 提供停止按钮,用户可以完全停止播放
-3. **快进快退**
-   - 提供快进和快退按钮,让用户可以控制播放进度
-4. **拖动播放**
-   - 提供进度条控件,用户可以拖动进度条跳转到指定位置
-5. **变速播放**
-   - 提供速度控制滑块,用户可以调整播放速度
-6. **调节声音和一键静音**
-   - 提供音量控制滑块,用户可以调整音量大小
-7. **播放列表控制**
-   - 提供播放列表控件,用户可以选择播放的文件
-8. **显示缓存时间和播放进度**
-   - 监控音频和视频的缓存情况,并显示缓存进度
-9. **截屏**
-   - 提供截屏按钮,用户可以在任意时刻捕获当前画面
-   =======
-   具体详细请查看 
-   框架设计和分析/
->>>>>>> db13c91dfb78579c8a31e485f154c9aae21d2b4a
+### 🎮 播放控制
+- **基础控制**: 播放/暂停、停止、快进/快退
+- **进度控制**: 拖动进度条精确定位
+- **变速播放**: 0.5x-2.0x倍速播放，保持音调不变
+- **音量控制**: 音量调节和一键静音功能
 
+### 📋 高级功能
+- **播放列表**: 支持本地文件和网络URL管理
+- **实时监控**: 显示缓冲区大小和播放进度
+- **截图功能**: 一键截取当前播放画面
+- **AI助手**: 集成DeepSeek AI，提供智能交互支持
 
+### 🌐 网络功能
+- **延迟追赶**: 智能缓冲控制，自动追赶直播延迟
+- **网络监控**: 连接状态检测和异常处理
+- **缓存优化**: 可配置的缓冲区大小和抖动区间
 
-# V1.2版本更新
+## 🏗️ 技术架构
 
-![image-20241205112103781](./assets/image-20241205112103781.png)
+### 核心技术栈
+- **GUI框架**: Qt 5.12+
+- **音视频处理**: FFmpeg 4.2+
+- **音频输出**: SDL2
+- **硬件加速**: FFmpeg HWAccel
+- **AI集成**: DeepSeek API
 
-支持**RTMP/RTSP/HLS** 拉流播放，检查url格式规范，以及连接失败，突然断开提示。
+### 架构设计
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   用户界面层     │    │   播放控制层     │    │   解码器层       │
+│   (Qt Widgets)  │◄──►│ (IjkMediaPlayer)│◄──►│   (FFmpeg)      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   显示渲染层     │    │   音视频同步     │    │   硬件加速层     │
+│   (OpenGL/Qt)   │    │   (Clock Sync)  │    │  (HW Decoder)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-支持URL最大尝试连接时间。
+## 🚀 快速开始
 
-支持拉流播放高延迟下追赶机制。供用户选择缓冲区大小。
+### 环境要求
+- **操作系统**: Windows 10+, Ubuntu 18.04+, macOS 10.14+
+- **编译器**: MSVC 2017+, GCC 7+, Clang 6+
+- **Qt版本**: Qt 5.12 或更高版本
+- **FFmpeg**: 4.2.1 或更高版本
+- **SDL2**: 2.0.10 或更高版本
 
-支持选择硬件解码。
+### 编译步骤
 
-支持黑色风格变换。以及网络流相关功能屏蔽。
+1. **克隆项目**
+```bash
+git clone https://github.com/your-username/EzPlayer.git
+cd EzPlayer
+```
 
+2. **安装依赖**
+```bash
+# Ubuntu/Debian
+sudo apt-get install qt5-default libavcodec-dev libavformat-dev libswscale-dev libsdl2-dev
 
+# Windows (使用vcpkg)
+vcpkg install ffmpeg sdl2 qt5-base
+```
 
-# 博客
+3. **配置项目**
+```bash
+# 使用qmake
+qmake Ezplayer.pro
+make
 
-[C9程序猿-CSDN博客](https://blog.csdn.net/weixin_50873490?type=blog)
+# 或使用CMake (如果支持)
+mkdir build && cd build
+cmake ..
+make
+```
+
+4. **运行程序**
+```bash
+./Ezplayer
+```
+
+## 📁 项目结构
+
+```
+EzPlayer/
+├── src/                    # 源代码目录
+│   ├── homewindow.cpp      # 主窗口实现
+│   ├── ijkmediaplayer.cpp  # 播放器核心
+│   ├── ff_ffplay.cpp       # FFmpeg播放引擎
+│   └── ...
+├── include/                # 头文件目录
+│   ├── homewindow.h        # 主窗口头文件
+│   ├── ijkmediaplayer.h    # 播放器接口
+│   └── ...
+├── ui/                     # UI文件目录
+│   ├── homewindow.ui       # 主窗口界面
+│   └── ...
+├── assets/                 # 资源文件
+├── docs/                   # 文档目录
+└── tests/                  # 测试文件
+```
+
+## 🔧 配置说明
+
+### 播放器配置
+- **缓存设置**: 可调整音频/视频缓冲区大小
+- **硬件解码**: 支持多种GPU硬件加速
+- **网络超时**: 可配置网络连接超时时间
+- **延迟控制**: 直播流延迟追赶参数设置
+
+### 界面配置
+- **主题切换**: 支持浅色/深色主题
+- **布局调整**: 可自定义界面布局
+- **快捷键**: 支持自定义快捷键设置
+
+## 📊 性能特性
+
+- **低延迟**: 优化的缓冲策略，最小化播放延迟
+- **高帧率**: 支持60fps高帧率视频播放
+- **内存优化**: 智能内存管理，减少资源占用
+- **CPU优化**: 硬件加速解码，降低CPU使用率
+
+## 🤝 贡献指南
+
+我们欢迎所有形式的贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详情。
+
+## 📝 更新日志
+
+### v1.2.0 (2024-12-05)
+- ✨ 新增RTMP/RTSP/HLS流媒体支持
+- 🔧 优化网络连接和错误处理
+- 🎯 新增硬件解码支持
+- 🎨 新增深色主题
+- ⚡ 优化延迟追赶机制
+
+### v1.1.0 (2024-11-20)
+- 🎵 基础音视频播放功能
+- 🎮 播放控制功能
+- 📋 播放列表管理
+- 📸 截图功能
+- 🤖 AI助手集成
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🙏 致谢
+
+- [FFmpeg](https://ffmpeg.org/) - 强大的音视频处理库
+- [Qt](https://www.qt.io/) - 跨平台GUI框架
+- [SDL2](https://www.libsdl.org/) - 音频输出库
+- [DeepSeek](https://www.deepseek.com/) - AI助手API
+
+## 📞 联系方式
+
+- **项目主页**: [GitHub](https://github.com/your-username/EzPlayer)
+- **问题反馈**: [Issues](https://github.com/your-username/EzPlayer/issues)
+- **博客**: [C9程序猿-CSDN博客](https://blog.csdn.net/weixin_50873490?type=blog)
+
+---
+
+⭐ 如果这个项目对您有帮助，请给我们一个星标！

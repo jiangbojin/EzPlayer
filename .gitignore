@@ -1,60 +1,164 @@
-# 忽略 Qt Creator 的用户配置文件
+# Qt项目相关
 *.pro.user
-.vs/
-# 忽略编译生成的文件夹
+*.pro.user.*
+*.qmake.stash
+Makefile
+Makefile.*
+*.moc
+*.gch
+*.qm
+
+# 编译输出目录
 build/
 debug/
 release/
+bin/
+obj/
+lib/
 
-# 忽略 Visual Studio Code 的配置文件夹
+# Visual Studio相关
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.sdf
+*.opensdf
+*.unsuccessfulbuild
+ipch/
+*.db
+*.opendb
+
+# Visual Studio Code相关
 .vscode/
+*.code-workspace
 
-# 忽略 Qt 编译生成的文件
+# Qt Creator相关
+*.pro.user
+*.pro.user.*
+*.autosave
+
+# 编译生成的文件
 *.o
 *.obj
 *.a
 *.lib
 *.so
 *.dll
+*.dylib
 *.exp
 *.pdb
-*.user
-*.suo
+*.ilk
+*.map
+*.res
+*.rc
+*.def
 
-# 忽略 Qt 的临时文件
-*.qmake.stash
-Makefile
-Makefile.*
-*.qrc
-*.moc
-*.gch
-
-# 忽略日志文件
-log/
-*.log
-
-# 忽略自动生成的 UI 和资源文件
+# 自动生成的UI文件
 ui_*.h
 qrc_*.cpp
+moc_*.cpp
 
-# 忽略临时文件
+# 日志文件
+log/
+*.log
+*.log.*
+
+# 临时文件
 *.tmp
 *.temp
 *.bak
+*.swp
+*.swo
+*~
 
-# 忽略特定的编译工具文件夹
+# 第三方库和依赖
 ffmpeg-4.2.1-win32-dev/
 ffmpeg6.0/
 SDL2/
+dll/
 
-# 忽略特定的编译生成文件
-Ezplayer.vcxproj
-Ezplayer.vcxproj.filters
-Ezplayer.vcxproj.user
-
-# 忽略特定的资源文件
-favicon.ico
+# 资源文件（根据需要调整）
 *.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.ico
+*.svg
+*.wav
+*.mp3
+*.mp4
+*.avi
+*.mkv
+*.mov
 
-# 忽略特定的自动生成文件
+# 特定项目文件
 Ezplayer.qtvscr
+favicon.ico
+player.ico
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE和编辑器
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# 备份文件
+*.orig
+*.rej
+*.old
+
+# 测试相关
+test_results/
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# 文档生成
+docs/build/
+docs/_build/
+
+# 包管理
+node_modules/
+vendor/
+
+# 环境文件
+.env
+.env.local
+.env.*.local
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 缓存文件
+.cache/
+*.cache
+
+# 其他
+*.pid
+*.seed
+*.pid.lock

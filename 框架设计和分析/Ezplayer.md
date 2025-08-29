@@ -209,7 +209,7 @@ void HomeWindow::onTimeOut()
 
 ```
 1.点击截屏
-2. 投递消息FFP_REQ_SCREENSHOT 
+2. 投递消息 FFP_REQ_SCREENSHOT 
 3.处理 ffp_screenshot_l((char *)msg->obj) 标志位req_screenshot_ = true
 4.video_refresh 刷新的时候 根据标志位是否截屏screenshot(AVFrame *frame) -> 主要实现：SaveJpeg
 ```
@@ -255,7 +255,9 @@ api: FFPlayer::ffp_frameq_cache(int value)
 
 ![image-20241205113604413](./assets/image-20241205113604413.png)
 
+# v1.3预计更新
 
+智能ai聊天助手，接入deepseekv3。
 
 # 参考
 

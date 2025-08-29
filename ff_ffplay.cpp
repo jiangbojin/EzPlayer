@@ -1551,7 +1551,12 @@ void FFPlayer::ffp_set_pkt_queue_cache(bool type, int value)
     }
     LOG(INFO) <<"MAX" << audioq.duration_cache_max <<"  "<<videoq.duration_cache_shake ;
 }
-
+///
+///初始化硬件解码器
+/// \param avctx
+/// \param codec
+/// \return -2传参有误，-1硬件有误 1成功返回
+///
 int FFPlayer::initHWDecoder(AVCodecContext*avctx, const AVCodec *codec)
 {
     if(!avctx && !codec) return -2;

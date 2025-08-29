@@ -99,7 +99,7 @@ LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
 
 
 LIBS += "D:\VS\Qt\Tools\mingw810_32\i686-w64-mingw32\lib\libws2_32.a"
-LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86\WinMM.Lib"
+LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x86\WinMM.Lib"
 
 
 

@@ -28,7 +28,13 @@ ScreenShot::ScreenShot()
 {
 
 }
-
+/**
+ * @brief SaveJpeg 将frame保存位jpeg图片
+ * @param src_frame 要保存的帧
+ * @param file_name 保存的图片路径
+ * @param jpeg_quality  图片质量
+ * @return
+ */
 int ScreenShot::SaveJpeg(AVFrame *src_frame, const char *file_name, int jpeg_quality)
 {
     //1.初始化了一些必要的 FFmpeg 数据结构

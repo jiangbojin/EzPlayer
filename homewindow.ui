@@ -58,161 +58,6 @@
       <layout class="QGridLayout" name="gridLayout_4">
        <item row="0" column="0">
         <layout class="QGridLayout" name="gridLayout_2">
-         <item row="0" column="11">
-          <widget class="QPushButton" name="screenBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>截屏</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="13">
-          <widget class="QPushButton" name="speedBtn">
-           <property name="maximumSize">
-            <size>
-             <width>70</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>1.0倍速</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="14">
-          <widget class="QPushButton" name="displayRatioBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>16:9</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="9">
-          <widget class="QPushButton" name="nextBtn">
-           <property name="minimumSize">
-            <size>
-             <width>50</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>50</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>后一集</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="7">
-          <widget class="QPushButton" name="forwardFastBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>快进</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="15">
-          <widget class="QPushButton" name="pushButton">
-           <property name="minimumSize">
-            <size>
-             <width>65</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>65</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>切换风格</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="3">
-          <widget class="QPushButton" name="backFastBtn">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>快退</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QPushButton" name="stopBtn">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>30</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">background-color:none;</string>
-           </property>
-           <property name="text">
-            <string>stop</string>
-           </property>
-          </widget>
-         </item>
          <item row="0" column="4">
           <widget class="QPushButton" name="playOrPauseBtn">
            <property name="minimumSize">
@@ -251,8 +96,71 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="12">
-          <widget class="QPushButton" name="full_screen_btn">
+         <item row="0" column="14">
+          <widget class="QPushButton" name="pushButton">
+           <property name="minimumSize">
+            <size>
+             <width>65</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>65</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>切换风格</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="11">
+          <widget class="QPushButton" name="screenBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>截屏</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="7">
+          <widget class="QPushButton" name="forwardFastBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>快进</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QPushButton" name="stopBtn">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <property name="minimumSize">
             <size>
              <width>40</width>
@@ -266,10 +174,80 @@
             </size>
            </property>
            <property name="styleSheet">
-            <string notr="true"/>
+            <string notr="true">background-color:none;</string>
            </property>
            <property name="text">
-            <string>全屏</string>
+            <string>stop</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="9">
+          <widget class="QPushButton" name="nextBtn">
+           <property name="minimumSize">
+            <size>
+             <width>50</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>50</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>后一集</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="13">
+          <widget class="QPushButton" name="displayRatioBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>16:9</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="12">
+          <widget class="QPushButton" name="speedBtn">
+           <property name="maximumSize">
+            <size>
+             <width>70</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>1.0倍速</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="3">
+          <widget class="QPushButton" name="backFastBtn">
+           <property name="minimumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>40</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>快退</string>
            </property>
           </widget>
          </item>
@@ -549,6 +527,18 @@
            </item>
            <item>
             <widget class="QLineEdit" name="network_URL">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>22</height>
+              </size>
+             </property>
              <property name="text">
               <string>rtmp://192.168.1.25/live/jbj</string>
              </property>
@@ -853,29 +843,6 @@
      <height>19</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu_2">
-    <property name="title">
-     <string>画面</string>
-    </property>
-    <widget class="QMenu" name="menu_3">
-     <property name="title">
-      <string>方向</string>
-     </property>
-     <addaction name="action_6"/>
-     <addaction name="action_7"/>
-     <addaction name="action_8"/>
-    </widget>
-    <widget class="QMenu" name="menu_4">
-     <property name="title">
-      <string>色调</string>
-     </property>
-     <addaction name="action_10"/>
-     <addaction name="action_11"/>
-     <addaction name="action_12"/>
-    </widget>
-    <addaction name="menu_3"/>
-    <addaction name="menu_4"/>
-   </widget>
    <widget class="QMenu" name="menu">
     <property name="title">
      <string>文件</string>
@@ -884,7 +851,6 @@
     <addaction name="openUrlAction"/>
    </widget>
    <addaction name="menu"/>
-   <addaction name="menu_2"/>
   </widget>
   <action name="openFileAction">
    <property name="text">
