@@ -45,8 +45,7 @@ SOURCES += \
     screenshot.cpp \
     toast.cpp \
     ijksdl_timer.cpp \
-    log/easylogging++.cc \
-    widget.cpp
+    log/easylogging++.cc
 
 HEADERS += \
     commonlooper.h \
@@ -70,8 +69,7 @@ HEADERS += \
     screenshot.h \
     toast.h \
     ijksdl_timer.h \
-    log/easylogging++.h \
-    widget.h
+    log/easylogging++.h
 
 FORMS += \
     deepseekclient.ui \
