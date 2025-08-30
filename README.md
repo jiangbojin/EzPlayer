@@ -13,7 +13,7 @@ EzPlayer是一个基于Qt框架和FFmpeg库开发的高性能跨平台音视频�
 [音视频播放器展示](https://www.bilibili.com/video/BV1PyiXYnEcy?vd_source=55dfba5031ed1a014c1ac576a7abd107)
 
 ### 📸 界面预览
-![播放器界面](播放器.png)
+![播放器界面](播放器界面.png)
 
 ## ✨ 主要特性
 
