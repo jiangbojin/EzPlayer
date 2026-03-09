@@ -789,7 +789,7 @@
      </item>
     </layout>
    </widget>
-   <widget class="DisplayWind" name="display" native="true">
+   <widget class="OpenGLDisplayWidget" name="display" native="true">
     <property name="geometry">
      <rect>
       <x>0</x>
@@ -921,12 +921,12 @@
    <extends>QSlider</extends>
    <header location="global">customslider.h</header>
   </customwidget>
-  <customwidget>
-   <class>DisplayWind</class>
-   <extends>QWidget</extends>
-   <header location="global">displaywind.h</header>
-   <container>1</container>
-  </customwidget>
+   <customwidget>
+    <class>OpenGLDisplayWidget</class>
+    <extends>QOpenGLWidget</extends>
+    <header location="global">opengldisplaywidget.h</header>
+    <container>1</container>
+   </customwidget>
  </customwidgets>
  <resources>
   <include location="resource.qrc"/>

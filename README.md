@@ -26,6 +26,7 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 4.2** 开发的 Windows 桌面
 |------|------|
 | 多格式支持 | 基于 FFmpeg，支持 H.264 / H.265 / VP8 / VP9 等主流编解码格式 |
 | 硬件解码 | 可选 NVIDIA CUVID / Intel QSV / AMD AMF 等 GPU 加速 |
+| GPU渲染 | 基于 QOpenGLWidget+GLSL Shader 的 YUV 硬件渲染，极大降低 CPU 消耗 |
 | RTMP 流媒体 | 内置 `RTMPPlayer` 拉流模块，支持断线重连 |
 | 音视频同步 | 基于 PTS 时钟的 A/V 同步策略 |
 | 变速播放 | 集成 Sonic 库，支持变速不变调（0.5×–2.0×） |
@@ -68,10 +69,10 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 4.2** 开发的 Windows 桌面
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        HomeWindow (主窗口)                           │
-│  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────────────┐ │
-│  │Playlist │  │DisplayWind│  │DeepSeek  │  │  控制栏 / 设置面板    │ │
-│  │播放列表  │  │视频渲染   │  │AI 助手   │  │  (进度/音量/变速…)    │ │
-│  └────┬─────┘  └─────┬─────┘  └──────────┘  └───────────────────────┘ │
+│  ┌─────────┐  ┌────────────────┐  ┌──────────┐  ┌───────────────────────┐ │
+│  │Playlist │  │  DisplayWidget │  │DeepSeek  │  │  控制栏 / 设置面板    │ │
+│  │播放列表  │  │(OpenGL/软渲染)│  │AI 助手   │  │  (进度/音量/变速…)    │ │
+│  └────┬─────┘  └───────┬────────┘  └──────────┘  └───────────────────────┘ │
 │       │              │                                               │
 │  ┌────▼──────────────▼──────────────────────────────────────────┐    │
 │  │              IjkMediaPlayer (播放器封装层)                     │    │
@@ -171,7 +172,8 @@ EzPlayer/
 ├── ff_ffplay_def.cpp/h        # 播放引擎数据结构定义（帧队列、PacketQueue 等）
 ├── rtmpplayer.cpp/h           # RTMP 拉流模块
 ├── rtmpbase.cpp/h             # RTMP 底层封装
-├── displaywind.cpp/h/ui       # 视频显示窗口（QPainter 绘制）
+├── opengldisplaywidget.cpp/h  # 视频显示控件（全新基于 OpenGL 渲染）
+├── displaywind.cpp/h/ui       # 视频显示窗口（QPainter 绘制，支持切换）
 ├── imagescaler.cpp/h          # 视频帧缩放（swscale）
 ├── playlist.cpp/h/ui          # 播放列表组件
 ├── medialist.cpp/h            # 播放列表数据管理
@@ -229,6 +231,17 @@ EzPlayer/
 ## 📝 更新日志
 
 ### v1.2.1 (2026年3月9日)
+
+- ✨ 全新重构视频渲染模块，引入 `QOpenGLWidget` + GLSL Shader 实现 YUV 硬件加速渲染
+- 🎮 新增渲染模式一键切换功能，支持在 OpenGL 与 软件渲染(QPainter) 之间切换
+- 🎯 彻底分离高分辨率视频格式转换开销，避免 CPU 端的 `sws_scale` 消耗，NV12 纹理支持直通
+
+### 路线图 (Roadmap)
+
+- 增加 Ten-vad 语音端点检测
+- 增加多种 AI 降噪算法
+- 增加语音转文字交互
+- 增加 AI 智能字幕
 
 ### v1.2.0 (2024-12-05)
 

@@ -37,6 +37,7 @@ SOURCES += \
     ff_ffplay_def.cpp \
     ijkmediaplayer.cpp \
     displaywind.cpp \
+    opengldisplaywidget.cpp \
     globalhelper.cpp \
     mediabase.cpp \
     medialist.cpp \
@@ -60,6 +61,7 @@ HEADERS += \
     ff_ffplay_def.h \
     ijkmediaplayer.h \
     displaywind.h \
+    opengldisplaywidget.h \
     imagescaler.h \
     ff_fferror.h \
     ffmsg.h \
