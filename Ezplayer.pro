@@ -1,3 +1,6 @@
+# 加载依赖路径配置
+include(deps_config.pri)
+
 #-------------------------------------------------
 #
 # Project created by QtCreator 2023-04-27T17:30:38
@@ -80,29 +83,22 @@ FORMS += \
 
 
 win32 {
-INCLUDEPATH += $$PWD/ffmpeg-4.2.1-win32-dev/include
-INCLUDEPATH += $$PWD/openssl/win32/include
-INCLUDEPATH += $$PWD/SDL2/include
-INCLUDEPATH += $$PWD/log
-LIBS += $$PWD/ffmpeg-4.2.1-win32-dev/lib/avformat.lib   \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/avcodec.lib    \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/avdevice.lib   \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/avfilter.lib   \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/avutil.lib     \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/postproc.lib   \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/swresample.lib \
-        $$PWD/ffmpeg-4.2.1-win32-dev/lib/swscale.lib    \
-        $$PWD/SDL2/lib/x86/SDL2.lib \
+    INCLUDEPATH += $$FFMPEG_DIR/include \
+                   $$OPENSSL_INCLUDE_DIR \
+                   $$SDL2_DIR/include \
+                   $$LOG_DIR
 
+    LIBS += $$FFMPEG_DIR/lib/avformat.lib   \
+            $$FFMPEG_DIR/lib/avcodec.lib    \
+            $$FFMPEG_DIR/lib/avdevice.lib   \
+            $$FFMPEG_DIR/lib/avfilter.lib   \
+            $$FFMPEG_DIR/lib/avutil.lib     \
+            $$FFMPEG_DIR/lib/postproc.lib   \
+            $$FFMPEG_DIR/lib/swresample.lib \
+            $$FFMPEG_DIR/lib/swscale.lib    \
+            $$SDL2_DIR/lib/x86/SDL2.lib
 
-
-LIBS += "D:\VS\Qt\Tools\mingw810_32\i686-w64-mingw32\lib\libws2_32.a"
-LIBS += "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x86\WinMM.Lib"
-
-
-
-
-LIBS += -lws2_32 -lOle32 -lWinMM
+    LIBS += -lws2_32 -lOle32 -lWinMM
 }
 
 

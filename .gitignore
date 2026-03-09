@@ -163,3 +163,25 @@ vendor/
 *.pid
 *.seed
 *.pid.lock
+
+# 执行文件
+*.exe
+*.app
+*.out
+
+# CMake 临时构建文件
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CMakeLists.txt.user
+object_script.*
+# C/C++ 崩溃转储文件
+*.dmp
+*.core
+
+# AI 代理与编辑器辅助工作区
+skills/
+.gemini/
+.agents/
+.cursor/
