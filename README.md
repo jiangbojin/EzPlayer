@@ -3,12 +3,12 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](#)
 [![Qt](https://img.shields.io/badge/Qt-5.15.2-green.svg)](https://www.qt.io/)
-[![FFmpeg](https://img.shields.io/badge/FFmpeg-4.2.1-orange.svg)](https://ffmpeg.org/)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-7.1-orange.svg)](https://ffmpeg.org/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](#)
 
 ## 📖 项目简介
 
-EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 4.2** 开发的 Windows 桌面音视频播放器。项目参考 ijkplayer 的架构设计，采用 **消息队列** 驱动的播放控制模型，支持本地文件与 RTMP 流媒体播放，并集成了 DeepSeek AI 助手。
+EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面音视频播放器。项目参考 ijkplayer 的架构设计，采用 **消息队列** 驱动的播放控制模型，支持本地文件与 RTMP 流媒体播放，并集成了 DeepSeek AI 助手。
 
 ### 🎥 演示视频
 
@@ -56,12 +56,12 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 4.2** 开发的 Windows 桌面
 | 组件 | 技术 | 版本 |
 |------|------|------|
 | GUI 框架 | Qt (Widgets + OpenGL + Network) | 5.15.2 |
-| 音视频解码 | FFmpeg | 4.2.1 |
+| 音视频解码 | FFmpeg | 7.1 |
 | 音频输出 | SDL2 | 2.0+ |
 | 变速处理 | Sonic 库 | — |
 | AI 集成 | DeepSeek API (HTTPS) | — |
 | 日志 | EasyLogging++ | — |
-| 构建工具 | qmake + MinGW 8.1 | — |
+| 构建工具 | qmake + MinGW 8.1 x64 | — |
 | 语言标准 | C++17 | — |
 
 ### 模块关系
@@ -98,25 +98,25 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 4.2** 开发的 Windows 桌面
 | 项目 | 要求 |
 |------|------|
 | 操作系统 | Windows 10 或更高 |
-| 编译器 | MinGW 8.1 (32-bit)，项目内已配置路径 |
-| Qt | 5.15.2 (MinGW 32-bit) |
-| FFmpeg | 4.2.1（已随项目附带 `ffmpeg-4.2.1-win32-dev/`） |
-| SDL2 | 随项目附带 `SDL2/` 目录 |
+| 编译器 | MinGW 8.1 (64-bit)，路径由 `deps_config.pri` 配置 |
+| Qt | 5.15.2 (MinGW 64-bit) |
+| FFmpeg | 7.1（`D:/VS/ffmpeg/ffmpeg-7.1`） |
+| SDL2 | `SDL2/` x64 开发库 |
 
 ### 第一步：配置依赖路径
 
 编辑项目根目录的 **`deps_config.pri`**，将路径修改为你本机的安装位置：
 
 ```ini
-# MinGW 根目录
-MINGW_DIR = D:/VS/Qt/Tools/mingw810_32
+# MinGW 64 位根目录
+MINGW_DIR = D:/VS/Qt/Tools/mingw810_64
 
-# Qt 安装目录
-QT_DIR    = D:/VS/Qt/5.15.2/mingw81_32
+# Qt 64 位安装目录
+QT_DIR    = D:/VS/Qt/5.15.2/mingw81_64
 ```
 
 > [!TIP]
-> FFmpeg、SDL2、OpenSSL、EasyLogging++ 均已包含在项目目录中（使用 `$$PWD` 相对路径），通常无需额外修改。
+> SDL2 开发库和 EasyLogging++ 位于项目目录；FFmpeg 7.1 使用 `D:/VS/ffmpeg/ffmpeg-7.1` 的 x64 SDK，需确保该路径存在。
 
 ### 第二步：编译
 
@@ -143,7 +143,7 @@ mingw32-make -f Makefile.Debug -j%NUMBER_OF_PROCESSORS%
 
 **方式三：Qt Creator**
 
-用 Qt Creator 打开 `Ezplayer.pro`，选择 MinGW 32-bit Kit 后直接编译运行。
+用 Qt Creator 打开 `Ezplayer.pro`，选择 Qt 5.15.2 MinGW 64-bit Kit 后直接编译运行。
 
 **方式四：Visual Studio**
 
@@ -160,7 +160,7 @@ release\Ezplayer.exe
 ```
 
 > [!IMPORTANT]
-> 运行前请确保 `dll/` 目录中的动态库（FFmpeg、SDL2 等）位于可执行文件同级目录或系统 PATH 中。
+> 运行前请使用 `build/ffmpeg71-x64/` 中的 x64 运行包，确保 FFmpeg 7.1、SDL2、Qt 和 MinGW DLL 与 `Ezplayer.exe` 位于同级目录。
 
 ## 📁 项目结构
 
@@ -201,9 +201,8 @@ EzPlayer/
 ├── log/                       # EasyLogging++ 源码
 │   └── easylogging++.h/cc
 │
-├── ffmpeg-4.2.1-win32-dev/    # FFmpeg SDK（头文件 + 库）
-├── SDL2/                      # SDL2 SDK
-├── dll/                       # 运行时所需的动态库
+├── SDL2/                      # SDL2 x64 SDK（头文件 + 库）
+├── build/ffmpeg71-x64/       # FFmpeg 7.1 x64 运行包
 ├── 框架设计和分析/              # 架构设计文档 & Visio 图
 └── assets/                    # 其他资源文件
 ```

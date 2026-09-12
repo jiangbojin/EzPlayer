@@ -46,6 +46,8 @@ FFPlayer::FFPlayer(std::shared_ptr<MessageQueue>m)
 void FFPlayer::ffp_destroy()
 {
     stream_close();
+    ez_audio_params_uninit(&audio_src);
+    ez_audio_params_uninit(&audio_tgt);
 }
 /**
  *  队列初始化 通过stream_open函数，开启read_thread读取线程以及视频刷新线程
@@ -196,10 +198,9 @@ int FFPlayer::stream_component_open(int stream_index)
 {
 
     AVCodecContext *avctx;
-    AVCodec *codec;
+    const AVCodec *codec;
     int sample_rate;
     int nb_channels;
-    int64_t channel_layout;
     int ret = 0;
     enum AVHWDeviceType type;
 
@@ -222,7 +223,7 @@ int FFPlayer::stream_component_open(int stream_index)
     // 设置pkt_timebase
     avctx->pkt_timebase = ic->streams[stream_index]->time_base;
     /* 根据codec_id查找解码器 */
-    codec = (AVCodec *)avcodec_find_decoder(avctx->codec_id);
+    codec = avcodec_find_decoder(avctx->codec_id);
 
     if (!codec) {
         av_log(NULL, AV_LOG_WARNING,
@@ -246,16 +247,18 @@ int FFPlayer::stream_component_open(int stream_index)
     switch (avctx->codec_type) {
     case AVMEDIA_TYPE_AUDIO:
         //从avctx(即AVCodecContext)中获取音频格式参数
-        sample_rate = avctx->sample_rate;;  // 采样率
-        nb_channels = avctx->channels;;    // 通道数
-        channel_layout = avctx->channel_layout;; // 通道布局
+        sample_rate = avctx->sample_rate;  // 采样率
+        nb_channels = avctx->ch_layout.nb_channels;    // 通道数
         /* prepare audio output 准备音频输出*/
         //调用audio_open打开sdl音频输出，实际打开的设备参数保存在audio_tgt，返回值表示输出设备的缓冲区大小
-        if ((ret = audio_open( channel_layout, nb_channels, sample_rate, &audio_tgt)) < 0) {
+        if ((ret = audio_open(&avctx->ch_layout, nb_channels, sample_rate, &audio_tgt)) < 0) {
             goto fail;
         }
         audio_hw_buf_size = ret;
-        audio_src = audio_tgt;  //暂且将数据源参数等同于目标输出参数
+        if (ez_audio_params_copy(&audio_src, &audio_tgt) < 0) {
+            ret = AVERROR(ENOMEM);
+            goto fail;
+        }
         //初始化audio_buf相关参数
         audio_buf_size  = 0;
         audio_buf_index = 0;
@@ -359,10 +362,10 @@ void FFPlayer::stream_component_close(int stream_index)
 static int audio_decode_frame(FFPlayer *is)
 {
     int data_size, resampled_data_size;
-    int64_t dec_channel_layout;
     int wanted_nb_samples;
     Frame *af;
     int ret = 0;
+    AVChannelLayout dec_layout = {};
     if(is->paused) {
         return -1;
     }
@@ -374,59 +377,61 @@ static int audio_decode_frame(FFPlayer *is)
         }
         frame_queue_next(&is->sampq);  // 不同序列的出队列
     } while (af->serial != is->audioq.serial); // 这里容易出现af->serial != audioq.serial 一直循环
-    // 2.根据frame中指定的音频参数获取缓冲区的大小 af->frame->channels * af->frame->nb_samples * 2
-    //6.0  af->frame->ch_layout.nb_channels
-    data_size = av_samples_get_buffer_size(NULL,av_frame_get_channels(af->frame),
+
+    const int frame_channels = af->frame->ch_layout.nb_channels;
+    if (frame_channels <= 0) {
+        LOG(ERROR) << "decoded audio frame has no channel layout";
+        goto fail;
+    }
+    if (av_channel_layout_copy(&dec_layout, &af->frame->ch_layout) < 0) {
+        LOG(ERROR) << "failed to copy decoded audio channel layout";
+        goto fail;
+    }
+
+    // 2.根据frame中指定的音频参数获取缓冲区的大小
+    data_size = av_samples_get_buffer_size(NULL, frame_channels,
                                            af->frame->nb_samples,
                                            (enum AVSampleFormat)af->frame->format, 1);
-    // 获取声道布局
-    dec_channel_layout =  (af->frame->channel_layout && af->frame->channels == av_get_channel_layout_nb_channels(af->frame->channel_layout)) ?
-                af->frame->channel_layout : av_get_default_channel_layout(av_frame_get_channels(af->frame));
-    if(dec_channel_layout == 0) {
-        LOG(INFO) << af->frame->channel_layout << ", failed: " <<  av_get_default_channel_layout(af->frame->channels) ;
-        dec_channel_layout = 3; // fixme
-        return -1; // 这个是异常情况
+    if (data_size < 0) {
+        ret = data_size;
+        goto fail;
     }
     // 获取样本数校正值：若同步时钟是音频，则不调整样本数；否则根据同步需要调整样本数
-    //    wanted_nb_samples = synchronize_audio(is, af->frame->nb_samples);  // 目前不考虑非音视频同步的是情况
     wanted_nb_samples = af->frame->nb_samples;
-    // 3.重采样
-    //audio_tgt是SDL可接受的音频帧数，是audio_open()中取得的参数
-    // 在audio_open()函数中又有"audio_src = audio_tgt""
-    // 此处表示：如果frame中的音频参数 == audio_src == audio_tgt，
-    // 那音频重采样的过程就免了(因此时swr_ctr是NULL)
-    // 否则使用frame(源)和audio_tgt(目标)中的音频参数来设置swr_ctx，
-    // 并使用frame中的音频参数来赋值audio_src
+    // 3.重采样：当输入参数与最近一次解码参数不一致时重新创建转换器。
     if (af->frame->format           != is->audio_src.fmt            || // 采样格式
-            dec_channel_layout      != is->audio_src.channel_layout || // 通道布局
+            av_channel_layout_compare(&dec_layout, &is->audio_src.ch_layout) != 0 || // 通道布局
             af->frame->sample_rate  != is->audio_src.freq  ||        // 采样率
             (wanted_nb_samples != af->frame->nb_samples && !is->swr_ctx) ) {
         swr_free(&is->swr_ctx);
-        is->swr_ctx = swr_alloc_set_opts(NULL,
-                                         is->audio_tgt.channel_layout,  // 目标输出
-                                         is->audio_tgt.fmt,
-                                         is->audio_tgt.freq,
-                                         dec_channel_layout,            // 数据源
-                                         (enum AVSampleFormat)af->frame->format,
-                                         af->frame->sample_rate,
-                                         0, NULL);
-        int ret = 0;
-        if (!is->swr_ctx || (ret = swr_init(is->swr_ctx)) < 0) {
+        ret = swr_alloc_set_opts2(&is->swr_ctx,
+                                  &is->audio_tgt.ch_layout,  // 目标输出
+                                  is->audio_tgt.fmt,
+                                  is->audio_tgt.freq,
+                                  &dec_layout,                 // 数据源
+                                  (enum AVSampleFormat)af->frame->format,
+                                  af->frame->sample_rate,
+                                  0, NULL);
+        if (ret < 0 || !is->swr_ctx || (ret = swr_init(is->swr_ctx)) < 0) {
             char errstr[256] = { 0 };
             av_strerror(ret, errstr, sizeof(errstr));
-            LOG(INFO) << "swr_init failed:" << errstr ;
-            sprintf(errstr, "Cannot create sample rate converter for conversion of %d Hz %s %d channels to %d Hz %s %d channels!\n",
-                    af->frame->sample_rate, av_get_sample_fmt_name((enum AVSampleFormat)af->frame->format), af->frame->channels,
-                    is-> audio_tgt.freq, av_get_sample_fmt_name(is->audio_tgt.fmt), is->audio_tgt.channels);
+            LOG(INFO) << "swr_init failed:" << errstr;
+            snprintf(errstr, sizeof(errstr), "Cannot create sample rate converter for conversion of %d Hz %s %d channels to %d Hz %s %d channels!\n",
+                    af->frame->sample_rate, av_get_sample_fmt_name((enum AVSampleFormat)af->frame->format), frame_channels,
+                    is->audio_tgt.freq, av_get_sample_fmt_name(is->audio_tgt.fmt), is->audio_tgt.channels);
             LOG(INFO) << errstr;
             swr_free(&is->swr_ctx);
             ret = -1;
             goto fail;
         }
-        is->audio_src.channel_layout = dec_channel_layout;
-        is->audio_src.channels       = af->frame->channels;
+        ez_audio_params_uninit(&is->audio_src);
+        is->audio_src.channels = frame_channels;
         is->audio_src.freq = af->frame->sample_rate;
         is->audio_src.fmt = (enum AVSampleFormat)af->frame->format;
+        if (av_channel_layout_copy(&is->audio_src.ch_layout, &dec_layout) < 0) {
+            ret = AVERROR(ENOMEM);
+            goto fail;
+        }
     }
     if (is->swr_ctx) {
         // 重采样输入参数1：输入音频样本数是af->frame->nb_samples
@@ -483,6 +488,7 @@ static int audio_decode_frame(FFPlayer *is)
     is->audio_clock_serial = af->serial;    // 保存当前解码帧的serial
     ret = resampled_data_size;
 fail:
+    av_channel_layout_uninit(&dec_layout);
     return ret;
 }
 
@@ -628,7 +634,7 @@ static void sdl_audio_callback(void *opaque, Uint8 *stream, int len)
 
 
 // 先参考我们之前讲的06-sdl-pcm范例
-int FFPlayer::audio_open(int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *audio_hw_params)
+int FFPlayer::audio_open(const AVChannelLayout *wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *audio_hw_params)
 {
     SDL_AudioSpec wanted_spec;
     // 音频参数设置SDL_AudioSpec  以便sdl后续调用cb
@@ -651,14 +657,19 @@ int FFPlayer::audio_open(int64_t wanted_channel_layout, int wanted_nb_channels, 
     // wanted_spec是期望的参数，spec是实际的参数，wanted_spec和spec都是SDL中的结构。
     // 此处audio_hw_params是FFmpeg中的参数，输出参数供上级函数使用
     // audio_hw_params保存的参数，就是在做重采样的时候要转成的格式。
+    ez_audio_params_uninit(audio_hw_params);
     audio_hw_params->fmt = AV_SAMPLE_FMT_S16;
     audio_hw_params->freq = wanted_spec.freq;
-    audio_hw_params->channel_layout = wanted_channel_layout;
-    audio_hw_params->channels =  wanted_spec.channels;
-    if(audio_hw_params->channel_layout == 0) {
-        audio_hw_params->channel_layout =
-                av_get_default_channel_layout(audio_hw_params->channels);
-        LOG(WARNING) << "layout is 0, force change to " << audio_hw_params->channel_layout;
+    audio_hw_params->channels = wanted_spec.channels;
+    int layout_ret = 0;
+    if (wanted_channel_layout && wanted_channel_layout->nb_channels == wanted_spec.channels) {
+        layout_ret = av_channel_layout_copy(&audio_hw_params->ch_layout, wanted_channel_layout);
+    } else {
+        av_channel_layout_default(&audio_hw_params->ch_layout, wanted_spec.channels);
+    }
+    if (layout_ret < 0) {
+        LOG(ERROR) << "failed to initialize audio channel layout";
+        return layout_ret;
     }
     /* audio_hw_params->frame_size这里只是计算一个采样点占用的字节数 */
     audio_hw_params->frame_size = av_samples_get_buffer_size(NULL, audio_hw_params->channels,

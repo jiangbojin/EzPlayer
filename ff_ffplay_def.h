@@ -16,6 +16,7 @@ extern "C" {
 #include "libavutil/dict.h"
 #include "libavutil/parseutils.h"
 #include "libavutil/samplefmt.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/avassert.h"
 #include "libavutil/time.h"
 #include "libavformat/avformat.h"
@@ -140,13 +141,37 @@ typedef struct PacketQueue {
 
 
 typedef struct AudioParams {
-    int			freq;                   // 采样率
-    int			channels;               // 通道数
-    int64_t		channel_layout;         // 通道布局，比如2.1声道，5.1声道等
-    enum AVSampleFormat	fmt;            // 音频采样格式，比如AV_SAMPLE_FMT_S16表示为有符号16bit深度，交错排列模式。
-    int			frame_size;             // 一个采样单元占用的字节数（比如2通道时，则左右通道各采样一次合成一个采样单元）
-    int			bytes_per_sec;          // 一秒时间的字节数，比如采样率48Khz，2 channel，16bit，则一秒48000*2*16/8=192000
+    int			freq = 0;                // 采样率
+    int			channels = 0;            // 通道数
+    AVChannelLayout	ch_layout = {};  // FFmpeg 7.1 通道布局
+    enum AVSampleFormat	fmt = AV_SAMPLE_FMT_NONE; // 音频采样格式
+    int			frame_size = 0;          // 一个采样单元占用的字节数
+    int			bytes_per_sec = 0;       // 每秒字节数
 } AudioParams;
+
+static inline void ez_audio_params_uninit(AudioParams *params)
+{
+    av_channel_layout_uninit(&params->ch_layout);
+    params->channels = 0;
+}
+
+static inline int ez_audio_params_copy(AudioParams *dst, const AudioParams *src)
+{
+    if (dst == src) {
+        return 0;
+    }
+    av_channel_layout_uninit(&dst->ch_layout);
+    const int ret = av_channel_layout_copy(&dst->ch_layout, &src->ch_layout);
+    if (ret < 0) {
+        return ret;
+    }
+    dst->freq = src->freq;
+    dst->channels = src->channels;
+    dst->fmt = src->fmt;
+    dst->frame_size = src->frame_size;
+    dst->bytes_per_sec = src->bytes_per_sec;
+    return 0;
+}
 
 
 /* Common struct for handling all types of decoded data and allocated render buffers. */

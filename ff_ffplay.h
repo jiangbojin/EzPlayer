@@ -109,7 +109,7 @@ public:
     // 关闭指定stream的解码线程，释放解码器资源
     void stream_component_close(int stream_index);
 
-    int audio_open(int64_t wanted_channel_layout,
+    int audio_open(const AVChannelLayout *wanted_channel_layout,
                    int wanted_nb_channels, int wanted_sample_rate,
                    struct AudioParams *audio_hw_params);
     void audio_close();
@@ -229,8 +229,8 @@ public:
 
     int paused = 0;
     // 音频输出相关
-    struct AudioParams audio_src;  // 保存最新解码的音频参数
-    struct AudioParams audio_tgt;  // 保存SDL音频输出需要的参数
+    struct AudioParams audio_src{};  // 保存最新解码的音频参数
+    struct AudioParams audio_tgt{};  // 保存SDL音频输出需要的参数
     struct SwrContext *swr_ctx = NULL;         // 音频重采样context
     int			audio_hw_buf_size = 0;          // SDL音频缓冲区的大小(字节为单位)
     // 指向待播放的一帧音频数据，指向的数据区将被拷入SDL音频缓冲区。若经过重采样则指向audio_buf1，

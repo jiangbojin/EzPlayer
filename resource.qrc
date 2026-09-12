@@ -25,6 +25,5 @@
         <file>res/prevBtn.png</file>
         <file>res/nextBtn.png</file>
         <file>res/qss/grey.css</file>
-        <file>res/fullscreen.png</file>
     </qresource>
 </RCC>

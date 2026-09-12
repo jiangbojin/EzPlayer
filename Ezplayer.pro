@@ -98,7 +98,7 @@ win32 {
             $$FFMPEG_DIR/lib/postproc.lib   \
             $$FFMPEG_DIR/lib/swresample.lib \
             $$FFMPEG_DIR/lib/swscale.lib    \
-            $$SDL2_DIR/lib/x86/SDL2.lib
+            $$SDL2_DIR/lib/x64/SDL2.lib
 
     LIBS += -lws2_32 -lOle32 -lWinMM
 }

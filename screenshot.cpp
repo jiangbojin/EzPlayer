@@ -24,6 +24,25 @@ AVFrame *allocate_sws_frame(AVCodecContext *enc_ctx)
     return sws_frame;
 }
 
+static int write_encoded_packets(AVCodecContext *enc_ctx, AVPacket *pkt,
+                                 AVFormatContext *ofmt_ctx, AVStream *video_st)
+{
+    int receive_ret;
+    while ((receive_ret = avcodec_receive_packet(enc_ctx, pkt)) >= 0) {
+        pkt->stream_index = video_st->index;
+        av_packet_rescale_ts(pkt, enc_ctx->time_base, video_st->time_base);
+        const int write_ret = av_write_frame(ofmt_ctx, pkt);
+        av_packet_unref(pkt);
+        if (write_ret < 0) {
+            return write_ret;
+        }
+    }
+    if (receive_ret == AVERROR(EAGAIN) || receive_ret == AVERROR_EOF) {
+        return 0;
+    }
+    return receive_ret;
+}
+
 ScreenShot::ScreenShot()
 {
 
@@ -39,13 +58,12 @@ int ScreenShot::SaveJpeg(AVFrame *src_frame, const char *file_name, int jpeg_qua
 {
     //1.初始化了一些必要的 FFmpeg 数据结构
     AVFormatContext* ofmt_ctx = NULL;
-    AVOutputFormat* fmt = NULL;
+    const AVOutputFormat* fmt = NULL;
     AVStream* video_st = NULL;
     AVCodecContext* enc_ctx = NULL;
-    AVCodec* codec = NULL;
+    const AVCodec* codec = NULL;
     AVFrame* picture = NULL;
     AVPacket *pkt = NULL;
-    int got_picture = 0;
     int ret = 0;
     struct  SwsContext *img_convert_ctx = NULL;
     //2. 创建输出格式上下文
@@ -65,27 +83,30 @@ int ScreenShot::SaveJpeg(AVFrame *src_frame, const char *file_name, int jpeg_qua
         ret = -1;
         goto fail;
     }
-    //6. 设置输出流的编码参数
-    enc_ctx = video_st->codec;
-    enc_ctx->codec_id = AV_CODEC_ID_MJPEG;      // mjpeg支持的编码器
-    enc_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
-    enc_ctx->pix_fmt = AV_PIX_FMT_YUVJ420P; // AV_CODEC_ID_MJPEG 支持的像素格式
-
-    enc_ctx->width  = src_frame->width;
-    enc_ctx->height = src_frame->height;
-
-    enc_ctx->time_base.num = 1;
-    enc_ctx->time_base.den = 25;
-    //7 输出一些信息
-    av_dump_format(ofmt_ctx, 0, file_name, 1);
-     //8 查找MJPEG编码器并打开
-    codec = avcodec_find_encoder(enc_ctx->codec_id);
+    //6. 查找并配置 MJPEG 编码器
+    codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
     if (!codec){
         LOG(ERROR) << "jpeg Codec not found.";
         ret = -1;
         goto fail;
     }
-    if (avcodec_open2(enc_ctx, codec,NULL) < 0){
+    enc_ctx = avcodec_alloc_context3(codec);
+    if (!enc_ctx) {
+        ret = AVERROR(ENOMEM);
+        goto fail;
+    }
+    enc_ctx->codec_id = AV_CODEC_ID_MJPEG;
+    enc_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
+    enc_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+    enc_ctx->color_range = AVCOL_RANGE_JPEG;
+    enc_ctx->width  = src_frame->width;
+    enc_ctx->height = src_frame->height;
+    enc_ctx->time_base = AVRational{1, 25};
+    video_st->time_base = enc_ctx->time_base;
+    //7 输出一些信息
+    av_dump_format(ofmt_ctx, 0, file_name, 1);
+    //8 打开 MJPEG 编码器
+    if (avcodec_open2(enc_ctx, codec, NULL) < 0){
         LOG(ERROR) << "Could not open jpeg codec.";
         ret = -1;
         goto fail;
@@ -137,54 +158,58 @@ int ScreenShot::SaveJpeg(AVFrame *src_frame, const char *file_name, int jpeg_qua
     //13 如果需要转换像素格式,先分配目标帧
     if(img_convert_ctx)     // 如果需要转换pix_fmt
     {
-        // 分配转换后的frame
         picture = allocate_sws_frame(enc_ctx);
-        /* make sure the frame data is writable */
-        ret = av_frame_make_writable(picture);
+        if (!picture || av_frame_make_writable(picture) < 0) {
+            ret = AVERROR(ENOMEM);
+            goto fail;
+        }
         ret = sws_scale(img_convert_ctx, (const uint8_t **) src_frame->data, src_frame->linesize, 0, src_frame->height,
                         picture->data, picture->linesize);
-        picture->pts = 0;
-
-        ret = avcodec_encode_video2(enc_ctx, pkt, picture, &got_picture);
-    }
-    else
-    {   // 否则直接编码输入帧
-        ret = avcodec_encode_video2(enc_ctx, pkt, src_frame, &got_picture);
-    }
-     // 14检查编码是否成功
-    if(ret < 0){
-        LOG(ERROR) <<"avcodec_encode_video2 Error.";
-        ret = -1;
-        goto fail;
-    }
-    // 15写入编码后的数据
-    if (got_picture==1){
-        pkt->stream_index = video_st->index;
-        ret = av_write_frame(ofmt_ctx, pkt);
-        if(ret < 0) {
-            LOG(ERROR) <<"av_write_frame Error.";
+        if (ret <= 0) {
             ret = -1;
             goto fail;
         }
-    }else {
-        LOG(ERROR) <<"no got_picture";
-        ret = -1;
+        picture->pts = 0;
+    }
+
+    //14 使用 FFmpeg 7.1 的发送/接收编码接口
+    ret = avcodec_send_frame(enc_ctx, picture ? picture : src_frame);
+    if (ret < 0) {
+        LOG(ERROR) << "avcodec_send_frame Error.";
+        goto fail;
+    }
+    ret = write_encoded_packets(enc_ctx, pkt, ofmt_ctx, video_st);
+    if (ret < 0) {
+        LOG(ERROR) << "avcodec_receive_packet/av_write_frame Error.";
+        goto fail;
+    }
+    // JPEG 编码器可能仍有缓存，发送 NULL 刷新并继续取包。
+    ret = avcodec_send_frame(enc_ctx, NULL);
+    if (ret < 0 && ret != AVERROR_EOF) {
+        LOG(ERROR) << "avcodec_send_frame flush Error.";
+        goto fail;
+    }
+    ret = write_encoded_packets(enc_ctx, pkt, ofmt_ctx, video_st);
+    if (ret < 0) {
+        LOG(ERROR) << "avcodec_receive_packet flush Error.";
         goto fail;
     }
     ret = 0;
 fail:
-    // 写入文件尾
-    ret = av_write_trailer(ofmt_ctx);
-    if(ret < 0)
-        LOG(ERROR) <<"av_write_trailer Error.";
+    // 写入文件尾；保留前面更具体的错误码。
+    if (ofmt_ctx && ofmt_ctx->pb) {
+        const int trailer_ret = av_write_trailer(ofmt_ctx);
+        if (ret >= 0 && trailer_ret < 0) {
+            ret = trailer_ret;
+        }
+        avio_closep(&ofmt_ctx->pb);
+    }
     if(pkt)
         av_packet_free(&pkt);
     if (enc_ctx)
-        avcodec_close(enc_ctx);
+        avcodec_free_context(&enc_ctx);
     if(picture)
         av_frame_free(&picture);
-    if(ofmt_ctx && ofmt_ctx->pb)
-        avio_close(ofmt_ctx->pb);
     if(ofmt_ctx)
         avformat_free_context(ofmt_ctx);
     if(img_convert_ctx)
