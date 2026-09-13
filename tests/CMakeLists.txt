@@ -29,6 +29,7 @@ endif()
 find_package(spdlog REQUIRED)
 
 add_executable(ezplayer_tests
+    test_main.cpp
     test_message_queue.cpp
     test_sonic_speed.cpp
     test_common_looper.cpp
@@ -50,12 +51,16 @@ target_include_directories(ezplayer_tests PRIVATE
 
 target_link_libraries(ezplayer_tests PRIVATE
     GTest::gtest
-    GTest::gtest_main
     spdlog::spdlog
     FFmpeg::FFmpeg
-    SDL2::SDL2
     Threads::Threads
 )
+
+if(TARGET WebRtcAvCapture::WebRtcAvCapture)
+    target_sources(ezplayer_tests PRIVATE test_webrtc_avcapture.cpp)
+    target_link_libraries(ezplayer_tests PRIVATE WebRtcAvCapture::WebRtcAvCapture)
+    target_compile_definitions(ezplayer_tests PRIVATE HAVE_WEBRTC_AV_CAPTURE)
+endif()
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(ezplayer_tests PRIVATE ${CMAKE_DL_LIBS})

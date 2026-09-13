@@ -47,7 +47,8 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面
 - **延迟追赶** — 直播流自动加速追赶延迟（可配置最大缓存 & 抖动区间）
 - **AI 助手** — 集成 DeepSeek API，提供对话式交互
 - **Toast 提示** — 播放状态、错误信息的分级弹框提示
-- **日志系统** — 基于 EasyLogging++，支持多级别日志输出到文件 & 终端
+- **日志系统** — 基于 spdlog，多 Sink 支持彩色终端输出与 10MB 自动滚动文件
+- **音频引擎** — 基于 WebRTC M153 与高精度单调时钟，彻底剥离 SDL2 依赖
 
 ## 🏗️ 技术架构
 
@@ -57,12 +58,13 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面
 |------|------|------|
 | GUI 框架 | Qt (Widgets + OpenGL + Network) | 5.15.2 |
 | 音视频解码 | FFmpeg | 7.1 |
-| 音频输出 | SDL2 | 2.0+ |
-| 变速处理 | Sonic 库 | — |
-| AI 集成 | DeepSeek API (HTTPS) | — |
-| 日志 | EasyLogging++ | — |
-| 构建工具 | qmake + MinGW 8.1 x64 | — |
-| 语言标准 | C++17 | — |
+| 音频引擎与采集 | WebRTC M153 Audio Engine & Capture | M153 |
+| 变速处理 | Sonic 算法库 | 0.5×~2.0× |
+| 依赖包管理 | Conan 2.x | 2.x |
+| 日志引擎 | spdlog (彩色控制台 + 滚动文件) | 1.14.1 |
+| 单元测试 | GoogleTest + CTest (14 项单测) | 1.14.0 |
+| 构建工具 | Modern CMake + Ninja | >= 3.20 |
+| 语言标准 | 现代 C++17 | C++17 |
 
 ### 模块关系
 
@@ -97,70 +99,63 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面
 
 | 项目 | 要求 |
 |------|------|
-| 操作系统 | Windows 10 或更高 |
-| 编译器 | MinGW 8.1 (64-bit)，路径由 `deps_config.pri` 配置 |
-| Qt | 5.15.2 (MinGW 64-bit) |
-| FFmpeg | 7.1（`D:/VS/ffmpeg/ffmpeg-7.1`） |
-| SDL2 | `SDL2/` x64 开发库 |
+| 操作系统 | Linux (Ubuntu/Debian) 或 Windows 10/11 |
+| 构建系统 | 现代 CMake (>= 3.20) + Ninja (推荐) 或 qmake |
+| 编译器 | GCC/G++ (>= 11) 或 MinGW 8.1+ / MSVC |
+| Qt | Qt 5.15+ (Core, Gui, Widgets, Network, OpenGL) |
+| FFmpeg | 7.1+ (avformat, avcodec, avutil, swscale, swresample 等) |
+| SDL2 | SDL2 2.0+ 开发库 |
 
-### 第一步：配置依赖路径
+### 现代 CMake + Ninja 构建（推荐）
 
-编辑项目根目录的 **`deps_config.pri`**，将路径修改为你本机的安装位置：
+本项目已全面升级支持 **Modern CMake + Ninja** 构建体系，实现 Out-of-source 隔离构建与亚秒级增量编译。
 
-```ini
-# MinGW 64 位根目录
-MINGW_DIR = D:/VS/Qt/Tools/mingw810_64
+#### Linux 一键构建与运行
 
-# Qt 64 位安装目录
-QT_DIR    = D:/VS/Qt/5.15.2/mingw81_64
+```bash
+# 1. 一键全量/增量构建（默认使用 CMake + Ninja，Release 模式）
+./build.sh
+
+# 2. 构建 Debug 模式
+./build.sh debug
+
+# 3. 清理构建目录及临时文件
+./build.sh clean
+
+# 4. 运行播放器
+./run.sh
+```
+
+#### 使用 CMake 标准命令 / Presets 构建
+
+```bash
+# 使用 CMake Presets (推荐)
+cmake --preset default
+cmake --build --preset default
+
+# 或手动配置与构建
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
 ```
 
 > [!TIP]
-> SDL2 开发库和 EasyLogging++ 位于项目目录；FFmpeg 7.1 使用 `D:/VS/ffmpeg/ffmpeg-7.1` 的 x64 SDK，需确保该路径存在。
+> 构建成功后会在根目录自动生成 `compile_commands.json` 软链接，为 VS Code、CLion、clangd 等现代编辑器提供完善的代码语义导航与补全支持。
 
-### 第二步：编译
+---
 
-**方式一：使用一键构建脚本（推荐）**
+### 传统构建方式（保留兼容）
 
-```bat
-:: Debug 构建（默认）
-build.bat
+#### Windows (qmake + MinGW)
 
-:: Release 构建
-build.bat release
+1. 编辑根目录 `deps_config.pri`，配置本地 MinGW、Qt、FFmpeg 路径；
+2. 执行 `build.bat` 或使用 Qt Creator 打开 `Ezplayer.pro` 进行构建。
 
-:: 清理后重新构建
-build.bat clean
+#### Linux (qmake + make)
+
+```bash
+./build.sh --legacy-qmake
 ```
 
-**方式二：手动 qmake 构建**
-
-```bat
-:: 确保 MinGW 和 Qt 的 bin 目录已在 PATH 中
-qmake Ezplayer.pro -spec win32-g++ "CONFIG+=debug"
-mingw32-make -f Makefile.Debug -j%NUMBER_OF_PROCESSORS%
-```
-
-**方式三：Qt Creator**
-
-用 Qt Creator 打开 `Ezplayer.pro`，选择 Qt 5.15.2 MinGW 64-bit Kit 后直接编译运行。
-
-**方式四：Visual Studio**
-
-打开 `Ezplayer.sln`，使用 Qt VS Tools 插件进行构建。
-
-### 第三步：运行
-
-```bat
-:: Debug 版
-debug\Ezplayer.exe
-
-:: Release 版
-release\Ezplayer.exe
-```
-
-> [!IMPORTANT]
-> 运行前请使用 `build/ffmpeg71-x64/` 中的 x64 运行包，确保 FFmpeg 7.1、SDL2、Qt 和 MinGW DLL 与 `Ezplayer.exe` 位于同级目录。
 
 ## 📁 项目结构
 
@@ -192,20 +187,33 @@ EzPlayer/
 ├── ijksdl_timer.cpp/h         # SDL 计时器封装
 ├── main.cpp                   # 程序入口、日志初始化
 │
-├── Ezplayer.pro               # qmake 工程文件
-├── deps_config.pri            # 依赖路径配置（用户需修改）
-├── build.bat                  # 一键构建脚本
+├── CMakeLists.txt             # 现代 CMake 顶层构建定义
+├── CMakePresets.json          # 官方 CMake Presets (Ninja)
+├── cmake/                     # 自定义模块 (FindFFmpeg.cmake)
+├── build.sh                   # Linux 一键构建脚本 (CMake + Ninja)
+├── run.sh                     # Linux 启动与环境配置脚本
+├── docs/                      # 官方工程设计与技术文档
+│   ├── README.md              # 文档导航总览
+│   ├── 01-architecture-and-design.md
+│   ├── 02-playback-engine-and-sync.md
+│   ├── 03-rendering-and-opengl.md
+│   ├── 04-modern-cmake-and-ninja-guide.md
+│   ├── 05-extension-modules.md
+│   └── assets/                # 架构图与技术流程图静态资产
+├── Ezplayer.pro               # 传统 qmake 工程文件 (保留兼容)
+├── deps_config.pri            # 传统依赖路径配置
+├── build.bat                  # Windows 构建脚本
 ├── resource.qrc               # Qt 资源文件
 ├── res/                       # 图标、样式表等静态资源
 │   └── qss/                   # QSS 样式文件
 ├── log/                       # EasyLogging++ 源码
 │   └── easylogging++.h/cc
-│
-├── SDL2/                      # SDL2 x64 SDK（头文件 + 库）
-├── build/ffmpeg71-x64/       # FFmpeg 7.1 x64 运行包
-├── 框架设计和分析/              # 架构设计文档 & Visio 图
-└── assets/                    # 其他资源文件
+├── SDL2/                      # SDL2 x64 SDK（Windows 备用）
+└── assets/                    # 其他项目展示资产
 ```
+
+> [!TIP]
+> 详细设计原理与技术深入分析，请参阅项目内置的 **[docs/ 官方工程文档](docs/README.md)**。
 
 ## 🔧 可配置项
 
