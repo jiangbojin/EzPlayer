@@ -128,6 +128,18 @@ QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
 ./scripts/visual_carrier.sh stop
 ```
 
+### 3.7 端到端自动化播放与过程关键 I 帧测试
+```bash
+# 1. synctime.mp4 端到端测试 (40秒标准视频，捕获 4 个 I 帧并执行 L1 视觉断言)
+./scripts/test_synctime_playback.sh
+
+# 2. time.mp4 端到端测试 (3分钟在线秒表，捕获 5 个密集 I 帧、核验 696x382 宽高比与 03:00 时长)
+./scripts/test_time_playback.sh
+
+# 3. 单独执行 L1 确定性视觉认知断言引擎 (OpenCV + ORT)
+python3 scripts/visual_assert_l1.py --image test-image/initial_ui.png
+python3 scripts/visual_assert_l1.py --image test-image/time/ui_snap_0002_pts07s.png --video-type time
+```
 
 ---
 
@@ -250,7 +262,15 @@ QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
      export QT_QPA_PLATFORM_PLUGIN_PATH="/root/project/qt-dev-tools/qt5/usr/lib/x86_64-linux-gnu/qt5/plugins/platforms"
      export LIBGL_ALWAYS_SOFTWARE=1
      ```
-  2. 启动 Xvfb 时显式添加扩展标志：`Xvfb :DISPLAY -screen 0 1280x720x24 +extension GLX +render -noreset -nolisten tcp`。
+   2. 启动 Xvfb 时显式添加扩展标志：`Xvfb :DISPLAY -screen 0 1280x720x24 +extension GLX +render -noreset -nolisten tcp`。
+
+### 坑点 8：非标准宽度下的 sws_scale SIMD 32 字节对齐踩堆 (SIMD Stride Alignment Heap Corruption)
+- **现象**：播放特定视频（如 696x382 的 `time.mp4`）并在主线程或渲染回调中截取/转存关键帧图像时，程序抛出堆损坏异常：`malloc(): corrupted top size` 并 Core Dump 崩溃。
+- **根因**：若使用 `QImage img(width, height, Format_RGB888)` 直接把 `img.bits()` 作为 `sws_scale` 的输出目标，`QImage` 的跨距仅为 4 字节对齐。对于非 16 或 32 倍数的宽度（如 $696 \times 3 = 2088$ 字节），FFmpeg 的 AVX2/SSE 向量汇编指令在写入行尾时会**写穿行缓冲区边界**，损坏 glibc 堆块头信息（Top Chunk Size）。
+- **Agent 对策**：
+  1. 涉及任何 FFmpeg 像素格式转换，目标内存一律使用 `av_image_alloc(..., 32)` 显式按 **32 字节对齐** 分配；
+  2. 转换完成后，通过 `QImage(dst_data[0], width, height, dst_linesize[0], ...)` 包装并调用 `copy()` 深拷贝；
+  3. 最后调用 `av_freep(&dst_data[0])` 安全释放堆内存。
 
 ---
 
@@ -266,11 +286,16 @@ QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
 | `.clang-tidy` | 聚焦 `bugprone` 与 `clang-analyzer` 的静态代码质量分析配置 |
 | `.clangd` | 配合 `build/compile_commands.json` 实现极致精准的 LSP 语法索引与补全 |
 | `scripts/agent_verify.sh` | **核心闭环验证脚本**：一键执行构建、CTest 测试、无头冒烟与虚拟显示视觉抓图自检 |
-| `scripts/visual_carrier.sh` | **虚拟显示载体与可视化捕获控制脚本**：支持无头环境真机视窗渲染与首帧高保真图像导出 |
+| `scripts/visual_carrier.sh` | **虚拟显示载体控制脚本**：Xvfb 虚拟屏幕启动、停止与真机视窗首帧抓图 |
+| `scripts/visual_assert_l1.py` | **L1 确定性视觉断言引擎**：基于 OpenCV+ORT 判定视口活跃度、宽高比、控件在位与缺陷标红 |
+| `scripts/test_synctime_playback.sh` | **synctime 端到端测试脚本**：40 秒标准视频播放、4 组关键 I 帧捕获与断言判定 |
+| `scripts/test_time_playback.sh` | **time 端到端测试脚本**：3 分钟在线秒表视频播放、5 组密集 I 帧捕获与 696x382 宽高比断言 |
 | `scripts/conan-install.sh` | Conan 2.x 依赖自动下载安装与 CMake 生成器产物输出脚本 |
 | `scripts/check-clang-format.sh` | 提交前只读检查格式规范（CI 守护） |
 | `scripts/run-clang-format.sh` | 就地批量格式化 `src/` 与 `tests/` 下的所有源码文件 |
 | `build.sh` | 顶层构建脚本，自动探测 Conan 依赖并调用 CMake + Ninja 实现自动化构建 |
 | `run.sh` | 顶层启动脚本，封装了 Linux 平台插件与可执行程序探测 |
-| `test-image/` | 自动化视觉测试截屏存储目录 |
+| `test-video/` | 端到端自动化测试视频样本目录 (`synctime.mp4`, `time.mp4`) |
+| `test-image/` | 自动化视觉测试截屏存储与断言标红目录 (`synctime/`, `time/`) |
+| `docs/06-visual-testing-and-headless-carrier.md` | **专题六**：虚拟显示载体、AI 视觉认知断言与端到端播放测试白皮书 |
 

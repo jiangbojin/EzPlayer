@@ -17,6 +17,7 @@
 | **03** | [视频渲染与 OpenGL 硬件加速](03-rendering-and-opengl.md) | QOpenGLWidget + GLSL Shader 硬件渲染 YUV420P、纹理更新与软硬件渲染动态切换 |
 | **04** | [现代 CMake + Ninja 构建与测试指南](04-modern-cmake-and-ninja-guide.md) | Conan 2.x 包管理、Target 目标模型、自动化 Qt 工具链、Presets 测试预设与 GoogleTest 自动化测试 |
 | **05** | [扩展模块与周边能力](05-extension-modules.md) | DeepSeek-V3 对话助手集成、spdlog 高性能日志系统、WebRTC 音视频采集与 RTMP 模块 |
+| **06** | [虚拟显示载体与 AI 视觉测试工作流](06-visual-testing-and-headless-carrier.md) | Xvfb+GLX 虚拟显示载体、OpenCV+ORT L1/L2 确定性视觉认知断言、端到端视频播放与密集 I 帧导出 |
 
 ---
 
@@ -49,9 +50,12 @@ flowchart TB
         GPU["OpenGL / GPU (视频帧着色器展示)"]
     end
 
-    subgraph Test_Layer ["质量保障层 (Automated Tests - tests/)"]
+    subgraph Test_Layer ["质量保障层 (Automated Tests & Visual Verification)"]
         GTEST["GoogleTest 单元测试体系 (14/14 Passed)"]
         CTEST["CTest 自动化测试驱动"]
+        XVFB["Xvfb 虚拟显示载体 (scripts/visual_carrier.sh)"]
+        VASSERT["L1 视觉认知与确定性断言引擎 (OpenCV + ORT)"]
+        E2E["端到端视频播放与 I 帧测试流水线 (synctime & time)"]
     end
 
     HW --> PL & GL & SW & DS
@@ -63,6 +67,9 @@ flowchart TB
     VDEC --> GL & SW
     GTEST -.-> MQ & SONIC & IJK & WEBRTC
     CTEST -.-> GTEST
+    XVFB -.-> HW
+    VASSERT -.-> XVFB
+    E2E -.-> VASSERT
 ```
 
 ---
@@ -124,17 +131,19 @@ EzPlayer/
 │   ├── test_common_looper.cpp  # CommonLooper 异步事件循环线程生命周期单测
 │   ├── test_sync_queues.cpp    # A/V 同步队列 (PacketQueue / FrameQueue) 边界单测
 │   └── test_webrtc_avcapture.cpp # WebRTC 音视频采集与设备枚举生命周期单测
-├── scripts/                    # 自动化与 Agent 运维脚本目录
-│   ├── agent_verify.sh         # 一键编译、全量单测与无头冒烟自动化验证闭环脚本
+├── scripts/                    # 自动化、视觉断言与 Agent 运维脚本目录
+│   ├── agent_verify.sh         # 一键编译、全量单测、无头冒烟与视觉自检总流水线
+│   ├── visual_carrier.sh       # Xvfb 虚拟显示载体驱动与真机视窗截屏工具
+│   ├── visual_assert_l1.py     # 基于 OpenCV + ORT 的 L1 确定性视觉认知与断言引擎
+│   ├── test_synctime_playback.sh # synctime.mp4 端到端播放与 4 组关键 I 帧测试套件
+│   ├── test_time_playback.sh   # time.mp4 (3分钟) 密集 I 帧与 696x382 宽高比测试套件
 │   ├── conan-install.sh        # Conan 2.x 依赖自动安装与 CMake Toolchain 生成脚本
 │   ├── check-clang-format.sh   # 代码格式合规性检查脚本
 │   └── run-clang-format.sh     # 代码自动就地格式化脚本
+├── test-video/                 # 测试视频样本目录 (synctime.mp4, time.mp4)
+├── test-image/                 # 自动化视觉测试截图与断言标注目录 (synctime/, time/)
 ├── legacy/                     # 历史遗留构建与工程文件归档
-│   ├── Ezplayer.pro            # 历史 qmake 工程描述
-│   ├── deps_config.pri         # 历史环境依赖路径配置
-│   ├── build.bat               # Windows 历史构建批处理脚本
-│   └── Ezplayer.sln            # 历史 Visual Studio 解决方案
-├── docs/                       # 官方技术文档库与架构指南
+├── docs/                       # 官方技术文档库与架构指南 (01 ~ 06)
 ├── res/                        # 图标、字库及 QSS 样式静态资源
 ├── resource.qrc                # Qt 资源集合描述文件
 ├── AGENTS.md                   # 面向 AI Coding Agent 的工程规约、拓扑与避坑指南
@@ -145,6 +154,7 @@ EzPlayer/
 
 ## ⚡ 快速跳转
 
+- **想了解虚拟显示载体与 AI 视觉认知断言？** 请参考 [06-visual-testing-and-headless-carrier.md](06-visual-testing-and-headless-carrier.md)。
 - **想了解现代构建、Presets 与自动化单测？** 请参考 [04-modern-cmake-and-ninja-guide.md](04-modern-cmake-and-ninja-guide.md)。
 - **想了解音画同步、解码与倍速播放？** 请参考 [02-playback-engine-and-sync.md](02-playback-engine-and-sync.md)。
 - **想了解 GPU 硬件着色与渲染模式切换？** 请参考 [03-rendering-and-opengl.md](03-rendering-and-opengl.md)。

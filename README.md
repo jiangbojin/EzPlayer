@@ -49,6 +49,7 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面
 - **Toast 提示** — 播放状态、错误信息的分级弹框提示
 - **日志系统** — 基于 spdlog，多 Sink 支持彩色终端输出与 10MB 自动滚动文件
 - **音频引擎** — 基于 WebRTC M153 与高精度单调时钟，彻底剥离 SDL2 依赖
+- **质量与测试体系** — GoogleTest 单元测试 + Xvfb 虚拟显示真机渲染 + OpenCV/ORT L1 视觉认知断言 + 关键 I 帧无损导出管线
 
 ## 🏗️ 技术架构
 
@@ -63,6 +64,8 @@ EzPlayer 是一个基于 **Qt 5.15** 和 **FFmpeg 7.1** 开发的 Windows 桌面
 | 依赖包管理 | Conan 2.x | 2.x |
 | 日志引擎 | spdlog (彩色控制台 + 滚动文件) | 1.14.1 |
 | 单元测试 | GoogleTest + CTest (14 项单测) | 1.14.0 |
+| 虚拟显示载体 | Xvfb + GLX 软件加速 + FFmpeg x11grab | Linux |
+| 视觉认知断言 | OpenCV 5.0 + ONNX Runtime (L1 确定性 + L2 看门狗) | 5.0 / 1.23 |
 | 构建工具 | Modern CMake + Ninja | >= 3.20 |
 | 语言标准 | 现代 C++17 | C++17 |
 
@@ -199,6 +202,7 @@ EzPlayer/
 │   ├── 03-rendering-and-opengl.md
 │   ├── 04-modern-cmake-and-ninja-guide.md
 │   ├── 05-extension-modules.md
+│   └── 06-visual-testing-and-headless-carrier.md
 │   └── assets/                # 架构图与技术流程图静态资产
 ├── Ezplayer.pro               # 传统 qmake 工程文件 (保留兼容)
 ├── deps_config.pri            # 传统依赖路径配置
