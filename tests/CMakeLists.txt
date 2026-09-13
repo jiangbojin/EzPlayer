@@ -1,4 +1,14 @@
-cmake_minimum_required(VERSION 3.20)
+# 补充 Conan 2.x 生成器搜索路径
+foreach(CONAN_GEN_DIR
+    "${CMAKE_BINARY_DIR}/build/${CMAKE_BUILD_TYPE}/generators"
+    "${CMAKE_BINARY_DIR}/build/Release/generators"
+    "${CMAKE_BINARY_DIR}/build/Debug/generators"
+    "${CMAKE_BINARY_DIR}/generators"
+)
+    if(EXISTS "${CONAN_GEN_DIR}")
+        list(PREPEND CMAKE_PREFIX_PATH "${CONAN_GEN_DIR}")
+    endif()
+endforeach()
 
 find_package(GTest QUIET)
 
@@ -16,6 +26,8 @@ if(NOT GTest_FOUND)
     FetchContent_MakeAvailable(googletest)
 endif()
 
+find_package(spdlog REQUIRED)
+
 add_executable(ezplayer_tests
     test_message_queue.cpp
     test_sonic_speed.cpp
@@ -25,7 +37,7 @@ add_executable(ezplayer_tests
     ${CMAKE_SOURCE_DIR}/src/core/sonic.cpp
     ${CMAKE_SOURCE_DIR}/src/core/commonlooper.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ff_ffplay_def.cpp
-    ${CMAKE_SOURCE_DIR}/src/utils/log/easylogging++.cc
+    ${CMAKE_SOURCE_DIR}/src/utils/log/logger.cpp
 )
 
 target_include_directories(ezplayer_tests PRIVATE
@@ -36,15 +48,10 @@ target_include_directories(ezplayer_tests PRIVATE
     ${FFMPEG_INCLUDE_DIRS}
 )
 
-target_compile_definitions(ezplayer_tests PRIVATE
-    ELPP_THREAD_SAFE
-    ELPP_FEATURE_CRASH_LOG
-    ELPP_STL_LOGGING
-)
-
 target_link_libraries(ezplayer_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    spdlog::spdlog
     FFmpeg::FFmpeg
     SDL2::SDL2
     Threads::Threads

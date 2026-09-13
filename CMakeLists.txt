@@ -27,8 +27,20 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # ---------------------------------------------------------------------------
-# 依赖包查找 (Qt5, SDL2, FFmpeg, Threads)
+# 依赖包查找 (Qt5, SDL2, FFmpeg, spdlog, Threads)
 # ---------------------------------------------------------------------------
+
+# 0. 补充 Conan 2.x 生成器搜索路径
+foreach(CONAN_GEN_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/build/${CMAKE_BUILD_TYPE}/generators"
+    "${CMAKE_CURRENT_BINARY_DIR}/build/Release/generators"
+    "${CMAKE_CURRENT_BINARY_DIR}/build/Debug/generators"
+    "${CMAKE_CURRENT_BINARY_DIR}/generators"
+)
+    if(EXISTS "${CONAN_GEN_DIR}")
+        list(PREPEND CMAKE_PREFIX_PATH "${CONAN_GEN_DIR}")
+    endif()
+endforeach()
 
 # 1. 查找 Qt5
 if(EXISTS "/root/project/qt-dev-tools/qt5/usr/lib/x86_64-linux-gnu/cmake")
@@ -46,8 +58,8 @@ find_package(Qt5 REQUIRED COMPONENTS
     OpenGL
 )
 
-# 2. 查找 SDL2
-find_package(SDL2 REQUIRED)
+# 2. SDL2 已彻底移除，无需查找 SDL2 (采用 C++17 原生线程与 WebRtcAvCapture 音频管道替代)
+
 
 # 3. 查找 FFmpeg 7.1
 find_package(FFmpeg REQUIRED COMPONENTS
@@ -61,8 +73,24 @@ find_package(FFmpeg REQUIRED COMPONENTS
     swscale
 )
 
-# 4. 线程库
+# 4. 查找 spdlog (由 Conan 2.x 管理)
+find_package(spdlog REQUIRED)
+
+# 5. 线程库
 find_package(Threads REQUIRED)
+
+# 5. 音视频采集与播放模块 (WebRTC M153 Fat Static Library)
+option(ENABLE_WEBRTC_AV_CAPTURE "Enable WebRTC Audio/Video Capture module" ON)
+if(ENABLE_WEBRTC_AV_CAPTURE)
+    if(NOT DEFINED WEBRTC_AV_CAPTURE_DIR)
+        set(WEBRTC_AV_CAPTURE_DIR "/root/project/webrtc-m153/knowledge-base/002-音频和视频采集/out/cmake")
+    endif()
+    if(EXISTS "${WEBRTC_AV_CAPTURE_DIR}/WebRtcAvCaptureConfig.cmake")
+        include("${WEBRTC_AV_CAPTURE_DIR}/WebRtcAvCaptureConfig.cmake")
+    else()
+        message(WARNING "WebRtcAvCaptureConfig.cmake not found at ${WEBRTC_AV_CAPTURE_DIR}")
+    endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # 主应用程序目标构建
@@ -127,15 +155,12 @@ target_sources(Ezplayer PRIVATE
     src/network/deepseekclient.cpp
     src/network/deepseekclient.h
     src/network/deepseekclient.ui
-    src/network/rtmpbase.cpp
-    src/network/rtmpbase.h
-    src/network/rtmpplayer.cpp
-    src/network/rtmpplayer.h
 
     # Utils 模块 (工具库与日志系统)
     src/utils/globalhelper.cpp
     src/utils/globalhelper.h
-    src/utils/log/easylogging++.cc
+    src/utils/log/logger.cpp
+    src/utils/log/logger.h
     src/utils/log/easylogging++.h
 )
 
@@ -158,9 +183,6 @@ target_include_directories(Ezplayer PRIVATE
 # 宏定义
 target_compile_definitions(Ezplayer PRIVATE
     QT_DEPRECATED_WARNINGS
-    ELPP_THREAD_SAFE
-    ELPP_FEATURE_CRASH_LOG
-    ELPP_STL_LOGGING
 )
 
 # 链接目标与库
@@ -171,9 +193,14 @@ target_link_libraries(Ezplayer PRIVATE
     Qt5::Gui
     Qt5::Core
     FFmpeg::FFmpeg
-    SDL2::SDL2
+    spdlog::spdlog
     Threads::Threads
 )
+
+if(TARGET WebRtcAvCapture::WebRtcAvCapture)
+    target_link_libraries(Ezplayer PRIVATE WebRtcAvCapture::WebRtcAvCapture)
+    target_compile_definitions(Ezplayer PRIVATE HAVE_WEBRTC_AV_CAPTURE)
+endif()
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(Ezplayer PRIVATE ${CMAKE_DL_LIBS})

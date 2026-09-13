@@ -1,9 +1,9 @@
-#!/bin/bash
 # ===== Ezplayer 一键构建脚本 (现代 CMake + Ninja) =====
 set -e
 
-# 强制使用 /root 作为唯一用户主目录
+# 强制使用 /root 作为唯一用户主目录与 Conan 主目录
 export HOME="/root"
+export CONAN_HOME="/root/.conan2"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -118,16 +118,21 @@ if [ -z "$FFMPEG_ROOT" ] && [ -z "$FFMPEG_DIR" ]; then
     fi
 fi
 
-# 自动注入 SDL2 头文件搜索路径以保障核心模块与单元测试目标编译
-SDL_INC_FLAGS=""
-if [ -d "$SCRIPT_DIR/SDL2/include" ]; then
-    SDL_INC_FLAGS="-I$SCRIPT_DIR/SDL2/include"
+
+# Conan 2.x 依赖自动检查与安装
+CONAN_TOOLCHAIN="$BUILD_DIR/build/$BUILD_MODE/generators/conan_toolchain.cmake"
+if [ ! -f "$CONAN_TOOLCHAIN" ]; then
+    echo "[INFO] 未检测到 Conan 工具链 ($CONAN_TOOLCHAIN)，正在自动执行依赖安装 (spdlog, gtest)..."
+    if [ -x "$SCRIPT_DIR/scripts/conan-install.sh" ]; then
+        "$SCRIPT_DIR/scripts/conan-install.sh" "$BUILD_MODE" "$BUILD_DIR"
+    else
+        echo "[ERROR] 未找到 scripts/conan-install.sh，无法自动安装依赖！"
+        exit 1
+    fi
 fi
-if [ -d "/usr/include/SDL2" ]; then
-    SDL_INC_FLAGS="$SDL_INC_FLAGS -I/usr/include/SDL2"
-fi
-if [ -n "$SDL_INC_FLAGS" ]; then
-    EXTRA_CMAKE_ARGS+=("-DCMAKE_CXX_FLAGS=$SDL_INC_FLAGS")
+
+if [ -f "$CONAN_TOOLCHAIN" ]; then
+    EXTRA_CMAKE_ARGS+=("-DCMAKE_TOOLCHAIN_FILE=$CONAN_TOOLCHAIN")
 fi
 
 # 配置阶段

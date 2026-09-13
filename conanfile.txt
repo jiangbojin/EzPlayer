@@ -1,0 +1,16 @@
+# EzPlayer 依赖清单 (Conan 2.x)
+# 参考 /root/project/cc-modern-framework/ 规范
+
+[requires]
+spdlog/1.14.1
+gtest/1.14.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout
+
+[options]
+*:shared=False
