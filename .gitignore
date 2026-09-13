@@ -22,6 +22,7 @@ lib/
 *.vcxproj.filters
 *.vcxproj.user
 *.sln
+!legacy/*
 *.suo
 *.user
 *.aps
@@ -67,10 +68,11 @@ ui_*.h
 qrc_*.cpp
 moc_*.cpp
 
-# 日志文件
-log/
+# 日志文件与运行时输出目录
+/log/
 *.log
 *.log.*
+!src/utils/log/
 
 # 临时文件
 *.tmp
@@ -176,6 +178,7 @@ CMakeScripts/
 cmake_install.cmake
 CMakeLists.txt.user
 object_script.*
+compile_commands.json
 # C/C++ 崩溃转储文件
 *.dmp
 *.core
@@ -185,4 +188,3 @@ skills/
 .gemini/
 .agents/
 .cursor/
-docs/

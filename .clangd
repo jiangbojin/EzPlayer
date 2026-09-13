@@ -1,0 +1,30 @@
+# EzPlayer clangd 语言服务器配置文件
+#
+# 目的：为现代 IDE / 编辑器 (VS Code, CLion, Neovim 等) 提供高质量的 C++17 + Qt5 代码索引与语义分析体验。
+
+CompileFlags:
+  # 1. 编译数据库 (compile_commands.json) 所在目录
+  CompilationDatabase: build
+
+  # 2. 补充语言特性与宏定义标志
+  Add:
+    - -std=c++17
+    - -Wall
+    - -Wno-deprecated-declarations
+    - -DQT_DEPRECATED_WARNINGS
+    - -DELPP_THREAD_SAFE
+    - -DELPP_FEATURE_CRASH_LOG
+    - -DELPP_STL_LOGGING
+
+# 索引设置：后台自动构建与更新符号索引
+Index:
+  Background: Build
+
+---
+
+# 规则分流：屏蔽 EasyLogging++、第三方依赖库及构建临时生成的诊断噪音
+If:
+  PathMatch: (src/utils/log/.*|third_party/.*|build/.*|SDL2/.*|legacy/.*)
+
+Diagnostics:
+  Suppress: ["*"]

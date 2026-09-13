@@ -1,0 +1,26 @@
+# EzPlayer 静态分析规则配置
+#
+# 核心审查策略：
+#   - 重点关注 bugprone（代码隐患）与 clang-analyzer（编译器深度分析）类致命缺陷。
+#   - 严格过滤外部与第三方依赖诊断（包括 FFmpeg 7.1、SDL2、Qt5 系统头文件及 EasyLogging++）。
+#   - 重点分析项目原生模块：src/core, src/render, src/ui, src/network, src/utils, tests。
+#   - 代码质量改进优先级：clang-analyzer-* > bugprone-* > performance-* > modernize-*
+
+Checks: '-*,bugprone-*,clang-analyzer-*,performance-*,modernize-*,readability-*,-modernize-use-trailing-return-type,-readability-magic-numbers,-readability-implicit-bool-conversion,-readability-avoid-const-params-in-decls'
+
+# 将致命的缺陷类型视为编译/分析错误阻断构建
+WarningsAsErrors: 'bugprone-*,clang-analyzer-*'
+
+# 正则表达式头文件过滤器：仅审查本项目自研源码，排除 utils/log (EasyLogging++) 及外部库
+HeaderFilterRegex: '(src/(core|render|ui|network|utils(?!\/log))|tests)/.*\.(hpp|h)$'
+
+# 代码格式化与排版对齐项目根目录 .clang-format
+FormatStyle: file
+
+CheckOptions:
+  # 变量命名风格建议小驼峰 (camelBack)
+  - key:   readability-identifier-naming.VariableCase
+    value: camelBack
+  # 现代化重构：推导并替换 NULL 为现代 C++17 的 nullptr
+  - key:   modernize-use-nullptr.NullMacros
+    value: 'NULL,CUSTOM_NULL'
