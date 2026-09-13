@@ -33,8 +33,9 @@ except ImportError:
 class VisualAssertL1Engine:
     """L1 快速确定性视觉断言与缺陷定位引擎"""
 
-    def __init__(self, image_path: str, models_dir: str = None):
+    def __init__(self, image_path: str, models_dir: str = None, video_type: str = "generic"):
         self.image_path = os.path.abspath(image_path)
+        self.video_type = video_type
         self.models_dir = models_dir or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "models"
         )
@@ -158,27 +159,102 @@ class VisualAssertL1Engine:
             2,
         )
 
-        # 判定规则 1: 全屏白屏/极高异常亮度 (崩溃或无效着色器)
-        if mean_b > 240.0 and std_b < 10.0:
+        # 判定规则 1: 全屏白屏/极高异常亮度且无任何细节 (崩溃或无效着色器)
+        if mean_b > 240.0 and std_b < 10.0 and laplacian_var < 5.0:
             self._add_check(
                 "viewport_health",
                 "FAIL",
                 metrics,
-                f"视口出现异常纯白亮屏 (均值: {mean_b})，着色器或清屏逻辑异常",
+                f"视口出现异常纯白死屏 (均值: {mean_b})，着色器或清屏逻辑异常",
                 remedy="检查 OpenGL 着色器初始化及 clearColor 设置",
                 bbox=[vx1, vy1, vx2 - vx1, vy2 - vy1],
             )
             return
 
-        # 初始未播放态：深黑底色 (mean < 30) 是健康的初态表现
-        # 若是播放态，则要求 std_b > 5.0 或 laplacian_var > 10.0
+        # 判定规则 2: 亮色/高反差活跃画面 (如 time.mp4 在线秒表网页)
+        if mean_b > 150.0 and (std_b > 20.0 or laplacian_var > 30.0):
+            self._add_check(
+                "viewport_health",
+                "PASS",
+                metrics,
+                f"视口渲染活跃：高反差/亮色视频画面正常 (均值: {mean_b}, 方差: {std_b}, 边缘能量: {laplacian_var})",
+                bbox=[vx1, vy1, vx2 - vx1, vy2 - vy1],
+            )
+            return
+
+        # 判定规则 3: 深黑底色视口或暗色常规视频
         self._add_check(
             "viewport_health",
             "PASS",
             metrics,
-            f"视口渲染健康：初态深黑底色正常 (均值: {mean_b}, 方差: {std_b})，无异常白屏或撕裂",
+            f"视口渲染健康：深底色视口呈现正常 (均值: {mean_b}, 方差: {std_b})，无异常白屏或撕裂",
             bbox=[vx1, vy1, vx2 - vx1, vy2 - vy1],
         )
+
+    def check_aspect_ratio_and_letterbox(self):
+        """1.1 视频非标准分辨率几何保真度与居中 Letterbox 断言"""
+        if self.video_type != "time":
+            return
+
+        h, w = self.raw_img.shape[:2]
+        vx1, vy1 = 10, 35
+        vx2, vy2 = int(w * 0.70), int(h * 0.72)
+        roi = self.raw_img[vy1:vy2, vx1:vx2]
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+        # 提取浅色视频内容区域 (阈值 > 80)
+        _, thresh = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            max_c = max(contours, key=cv2.contourArea)
+            bx, by, bw, bh = cv2.boundingRect(max_c)
+            measured_ar = bw / float(bh)
+            target_ar = 696.0 / 382.0
+            error_ratio = abs(measured_ar - target_ar) / target_ar
+
+            metrics = {
+                "content_bbox": [bx, by, bw, bh],
+                "measured_aspect_ratio": round(measured_ar, 4),
+                "target_aspect_ratio": round(target_ar, 4),
+                "aspect_ratio_error_pct": round(error_ratio * 100, 2),
+            }
+
+            abs_x = vx1 + bx
+            abs_y = vy1 + by
+            cv2.rectangle(
+                self.annotated_img,
+                (abs_x, abs_y),
+                (abs_x + bw, abs_y + bh),
+                (0, 255, 255),
+                2,
+            )
+            cv2.putText(
+                self.annotated_img,
+                f"Video 696x382 (AR:{measured_ar:.2f}, Err:{error_ratio*100:.1f}%)",
+                (abs_x + 8, abs_y + 45),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 255, 255),
+                2,
+            )
+
+            if error_ratio < 0.05:
+                self._add_check(
+                    "aspect_ratio_fidelity",
+                    "PASS",
+                    metrics,
+                    f"696x382 视频宽高比保真正常: 测量值 {measured_ar:.4f}, 理论值 {target_ar:.4f}, 误差 {error_ratio*100:.2f}% < 5%",
+                    bbox=[abs_x, abs_y, bw, bh],
+                )
+            else:
+                self._add_check(
+                    "aspect_ratio_fidelity",
+                    "FAIL",
+                    metrics,
+                    f"视频画面几何拉伸变形: 测量宽高比 {measured_ar:.4f} 与预期 {target_ar:.4f} 偏差过大 ({error_ratio*100:.2f}%)",
+                    remedy="检查 OpenGL 视口与 QWidget 缩放保持原始长宽比逻辑 (保持 Letterboxing)",
+                    bbox=[abs_x, abs_y, bw, bh],
+                )
 
     def check_control_bar(self):
         """2. 控制栏与交互控件在位率断言 (底部控制区)"""
@@ -301,21 +377,26 @@ class VisualAssertL1Engine:
             2,
         )
 
-        if contrast_diff < 50.0:
+        if contrast_diff < 50.0 and not has_highlight and float(std_val[0][0]) < 10.0:
             self._add_check(
                 "playlist_panel",
                 "FAIL",
                 metrics,
-                f"右侧面板与主视口对比度异常模糊 ({contrast_diff:.1f} < 50.0)，可能未正常加载",
+                f"右侧面板未正常加载 (对比度: {contrast_diff:.1f}, 高亮项: {has_highlight}, 方差: {float(std_val[0][0]):.1f})",
                 remedy="检查右侧 QTabWidget 样式表与播放列表初始化",
-                bbox=[px1, py1, px2 - px1, py2 - py1],
+                bbox=[px1, py1, px2 - py1, py2 - py1],
             )
         else:
+            detail_msg = (
+                f"播放列表面板在位：成功检测到当前播放激活高亮项 (高亮像素: {highlight_pixels})"
+                if has_highlight
+                else f"播放列表面板在位：浅色背景与视口对比鲜明 ({contrast_diff:.1f})"
+            )
             self._add_check(
                 "playlist_panel",
                 "PASS",
                 metrics,
-                f"播放列表面板在位：浅色背景与视口对比鲜明 ({contrast_diff:.1f})，检测到激活选中行",
+                detail_msg,
                 bbox=[px1, py1, px2 - px1, py2 - py1],
             )
 
@@ -404,6 +485,7 @@ class VisualAssertL1Engine:
 
         # 执行核心规则检查链
         self.check_viewport_health()
+        self.check_aspect_ratio_and_letterbox()
         self.check_control_bar()
         self.check_playlist_panel()
         self.check_onnx_inference()
@@ -436,13 +518,19 @@ def main():
         help="断言结果、报告与标红图输出目录",
     )
     parser.add_argument(
+        "--video-type",
+        default="generic",
+        choices=["generic", "synctime", "time"],
+        help="测试视频样本类型 (例如 time, synctime)",
+    )
+    parser.add_argument(
         "--vlm",
         action="store_true",
         help="强制唤醒 L2 VLM 进行深度语义判定",
     )
     args = parser.parse_args()
 
-    engine = VisualAssertL1Engine(args.image)
+    engine = VisualAssertL1Engine(args.image, video_type=args.video_type)
     report = engine.evaluate(args.out_dir)
 
     # 终端汇报格式化输出

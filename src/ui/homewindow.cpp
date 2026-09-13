@@ -15,6 +15,7 @@
 
 extern "C" {
 #include <libavutil/frame.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/pixfmt.h>
 #include <libswscale/swscale.h>
 }
@@ -452,16 +453,22 @@ int HomeWindow::OutputVideo(const Frame* f) {
                     width, height, static_cast<AVPixelFormat>(f->frame->format), width, height,
                     AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
                 if (sws_ctx) {
-                    QImage img(width, height, QImage::Format_RGB888);
-                    uint8_t* dst_data[4] = {img.bits(), nullptr, nullptr, nullptr};
-                    int dst_linesize[4]  = {static_cast<int>(img.bytesPerLine()), 0, 0, 0};
-                    sws_scale(sws_ctx, f->frame->data, f->frame->linesize, 0, height, dst_data,
-                              dst_linesize);
+                    uint8_t* dst_data[4] = {nullptr};
+                    int dst_linesize[4]  = {0};
+                    int alloc_ret =
+                        av_image_alloc(dst_data, dst_linesize, width, height, AV_PIX_FMT_RGB24, 32);
+                    if (alloc_ret >= 0) {
+                        sws_scale(sws_ctx, f->frame->data, f->frame->linesize, 0, height, dst_data,
+                                  dst_linesize);
+                        QImage img(dst_data[0], width, height, dst_linesize[0],
+                                   QImage::Format_RGB888);
+                        img.copy().save(QString::fromUtf8(filename));
+                        av_freep(&dst_data[0]);
+                        LOG(INFO) << "[I-Frame Dump] 成功保存 I 帧: " << filename
+                                  << " (PTS: " << current_pts_ms << "ms, 分辨率: " << width << "x"
+                                  << height << ")";
+                    }
                     sws_freeContext(sws_ctx);
-                    img.save(QString::fromUtf8(filename));
-                    LOG(INFO) << "[I-Frame Dump] 成功保存 I 帧: " << filename
-                              << " (PTS: " << current_pts_ms << "ms, 分辨率: " << width << "x"
-                              << height << ")";
                 }
             }
         }
