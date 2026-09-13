@@ -13,6 +13,12 @@
 #include "ui_homewindow.h"
 #include "urldialog.h"
 
+extern "C" {
+#include <libavutil/frame.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
+}
+
 int64_t get_ms() {
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch());
@@ -420,13 +426,46 @@ void HomeWindow::Loop() {
 /// @param frame
 /// @return
 int HomeWindow::OutputVideo(const Frame* f) {
-    // ui->display-> updateFrame(f->frame->width,f->frame->height
-    //                           ,f->frame->data[0], f->frame->data[1],
-    //                           f->frame->data[2]
-    //                               , f->frame->linesize[0]
-    //                               , f->frame->linesize[1]
-    //                                ,f->frame->linesize[2]);
-    // return   1;
+    if (!f || !f->frame) {
+        return -1;
+    }
+
+    // 过程 I 帧检测与受控截图存储
+    const char* dump_dir_env = getenv("EZPLAYER_DUMP_IFRAME_DIR");
+    if (dump_dir_env && dump_dir_env[0] != '\0') {
+        bool is_iframe =
+            (f->frame->pict_type == AV_PICTURE_TYPE_I || (f->frame->flags & AV_FRAME_FLAG_KEY));
+        int64_t current_pts_ms = static_cast<int64_t>(f->pts * 1000.0);
+        // 过滤高频重复导出：同一 PTS 或 500ms 内不重复导出
+        if (is_iframe && (last_dumped_iframe_pts_ < 0 ||
+                          std::abs(current_pts_ms - last_dumped_iframe_pts_) >= 500)) {
+            last_dumped_iframe_pts_ = current_pts_ms;
+            dumped_iframe_count_++;
+            char filename[512];
+            snprintf(filename, sizeof(filename), "%s/iframe_%04d_pts%05lldms.png", dump_dir_env,
+                     dumped_iframe_count_, static_cast<long long>(current_pts_ms));
+
+            int width  = f->frame->width;
+            int height = f->frame->height;
+            if (width > 0 && height > 0) {
+                SwsContext* sws_ctx = sws_getContext(
+                    width, height, static_cast<AVPixelFormat>(f->frame->format), width, height,
+                    AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+                if (sws_ctx) {
+                    QImage img(width, height, QImage::Format_RGB888);
+                    uint8_t* dst_data[4] = {img.bits(), nullptr, nullptr, nullptr};
+                    int dst_linesize[4]  = {static_cast<int>(img.bytesPerLine()), 0, 0, 0};
+                    sws_scale(sws_ctx, f->frame->data, f->frame->linesize, 0, height, dst_data,
+                              dst_linesize);
+                    sws_freeContext(sws_ctx);
+                    img.save(QString::fromUtf8(filename));
+                    LOG(INFO) << "[I-Frame Dump] 成功保存 I 帧: " << filename
+                              << " (PTS: " << current_pts_ms << "ms, 分辨率: " << width << "x"
+                              << height << ")";
+                }
+            }
+        }
+    }
 
     // 调用当前活动的显示控件
     if (use_opengl_render_) {
@@ -758,6 +797,8 @@ bool HomeWindow::play(std::string url) {
     if (mp_) {
         stop();
     }
+    last_dumped_iframe_pts_ = -1;
+    dumped_iframe_count_    = 0;
     // 1. 先检测mp是否已经创建
     if (!msg_queue_)
         msg_queue_ = std::make_shared<MessageQueue>();
@@ -1141,4 +1182,12 @@ void HomeWindow::on_renderSwitchBtn_clicked() {
     }
 
     resizeUI();
+}
+
+void HomeWindow::openPath(const QString& filePath) {
+    LOG(INFO) << "HomeWindow::openPath: " << filePath.toStdString();
+    if (filePath.isEmpty()) {
+        return;
+    }
+    ui->playList->OnAddFileAndPlay(filePath);
 }

@@ -1,4 +1,4 @@
-﻿#ifndef HOMEWINDOW_H
+#ifndef HOMEWINDOW_H
 #define HOMEWINDOW_H
 
 #include <commonlooper.h>
@@ -189,6 +189,14 @@ class HomeWindow : public QMainWindow, public CommonLooper {
 
     // 设置为直播模式
     int set_Accelerate_Real_time(bool flag);
+
+    /// @brief 外部通过绝对路径直接添加并触发播放
+    void openPath(const QString& filePath);
+
+   private:
+    int64_t last_dumped_iframe_pts_ = -1;  // 上次导出的 I 帧 PTS 毫秒
+    int dumped_iframe_count_        = 0;   // 已导出的有序 I 帧计数
+
    public slots:
     // 硬件加速更改
     void on_updateHW_DecodeType(const QString& data);

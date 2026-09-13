@@ -190,6 +190,6 @@ skills/
 .cursor/
 
 # 测试抓取图像与目录
-test-image/*.png
-test-image/*.json
-!test-image/.gitkeep
+test-image/**/*.png
+test-image/**/*.json
+!test-image/**/.gitkeep

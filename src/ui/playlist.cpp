@@ -1,4 +1,4 @@
-﻿#include <QDir>
+#include <QDir>
 
 #include "playlist.h"
 #include "ui_playlist.h"
@@ -257,6 +257,8 @@ void Playlist::OnAddFile(QString strFileName) {
         // 加入成功则选中行数
     } else {
         pItem = listItem.at(0);
+        pItem->setData(Qt::UserRole, QVariant(fileInfo.filePath()));
+        pItem->setToolTip(fileInfo.filePath());
     }
     m_nCurrentPlayListIndex = ui->List->row(pItem);    // 设置当前选中的列表项
     ui->List->setCurrentRow(m_nCurrentPlayListIndex);  // ui选中状态更新为该url
@@ -286,6 +288,8 @@ void Playlist::OnAddFileAndPlay(QString strFileName) {
         ui->List->addItem(pItem);
     } else {
         pItem = listItem.at(0);
+        pItem->setData(Qt::UserRole, QVariant(fileInfo.filePath()));
+        pItem->setToolTip(fileInfo.filePath());
     }
     on_List_itemDoubleClicked(pItem);
     savePlayList();
