@@ -169,6 +169,19 @@ _inner_capture() {
     # 主动平稳关闭进程并解除 trap
     terminate_app
     trap - INT TERM
+
+    # 执行 L1 视觉认知与确定性断言分析
+    if [ -f "$ROOT/scripts/visual_assert_l1.py" ]; then
+        echo -e "\n${CYAN}[AI 断言] 正在执行 L1 视觉认知与确定性断言分析 (OpenCV + ONNX Runtime)...${RESET}"
+        local py_bin="/root/miniconda3/envs/work/bin/python3"
+        if [ ! -x "$py_bin" ]; then
+            py_bin="$(command -v python3)"
+        fi
+        "$py_bin" "$ROOT/scripts/visual_assert_l1.py" \
+            --image "$target_output" \
+            --out-dir "$(dirname "$target_output")"
+    fi
+
     return 0
 }
 
