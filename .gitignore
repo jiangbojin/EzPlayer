@@ -188,3 +188,7 @@ skills/
 .gemini/
 .agents/
 .cursor/
+
+# 测试抓取图像与目录
+test-image/*.png
+!test-image/.gitkeep

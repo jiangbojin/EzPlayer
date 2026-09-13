@@ -117,6 +117,18 @@ QT_QPA_PLATFORM_PLUGIN_PATH="/root/project/qt-dev-tools/qt5/usr/lib/x86_64-linux
 QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
 ```
 
+### 3.6 虚拟显示载体与视觉闭环测试 (Xvfb + FFmpeg)
+```bash
+# 1. 一键拉起进程并捕获初始界面图像 (步骤 1+2 闭环，输出至 test-image/initial_ui.png)
+./scripts/visual_carrier.sh capture
+
+# 2. 启动/停止/查看持久化虚拟显示服务 (用于多步骤交互与点击测试)
+./scripts/visual_carrier.sh start
+./scripts/visual_carrier.sh status
+./scripts/visual_carrier.sh stop
+```
+
+
 ---
 
 ## 4. C++17 编码与 Qt 规范
@@ -228,6 +240,18 @@ QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
      ```
   3. 严禁把普通用户主目录（如 `/home/<user>/.gemini`）用于业务构建上下文。
 
+### 坑点 7：Qt XCB 与 Xvfb 虚拟显示下的 OpenGL 插件定位 (GLX Plugin Lockdown)
+- **现象**：在 Xvfb 虚拟显示环境下运行 EzPlayer 时，报错 `QXcbIntegration: Cannot create platform OpenGL context, neither GLX nor EGL are enabled` 并引发崩溃。
+- **根因**：若仅配置了 `QT_QPA_PLATFORM_PLUGIN_PATH` 指向 `platforms` 目录，Qt 将无法定位上一级 `plugins/xcbglintegrations/libqxcb-glx-integration.so` 插件，导致 OpenGL 视口初始化失败。
+- **Agent 对策**：
+  1. 必须同时显式导出 Qt 顶层插件搜索路径：
+     ```bash
+     export QT_PLUGIN_PATH="/root/project/qt-dev-tools/qt5/usr/lib/x86_64-linux-gnu/qt5/plugins"
+     export QT_QPA_PLATFORM_PLUGIN_PATH="/root/project/qt-dev-tools/qt5/usr/lib/x86_64-linux-gnu/qt5/plugins/platforms"
+     export LIBGL_ALWAYS_SOFTWARE=1
+     ```
+  2. 启动 Xvfb 时显式添加扩展标志：`Xvfb :DISPLAY -screen 0 1280x720x24 +extension GLX +render -noreset -nolisten tcp`。
+
 ---
 
 ## 6. 工具链与配置文件一览
@@ -241,9 +265,12 @@ QT_QPA_PLATFORM=offscreen timeout 3s ./build/Ezplayer
 | `.clang-format` | 适配 C++17 与 Qt 风格的代码排版格式规范 |
 | `.clang-tidy` | 聚焦 `bugprone` 与 `clang-analyzer` 的静态代码质量分析配置 |
 | `.clangd` | 配合 `build/compile_commands.json` 实现极致精准的 LSP 语法索引与补全 |
-| `scripts/agent_verify.sh` | **核心闭环验证脚本**：一键执行构建、CTest 测试与无头冒烟 |
+| `scripts/agent_verify.sh` | **核心闭环验证脚本**：一键执行构建、CTest 测试、无头冒烟与虚拟显示视觉抓图自检 |
+| `scripts/visual_carrier.sh` | **虚拟显示载体与可视化捕获控制脚本**：支持无头环境真机视窗渲染与首帧高保真图像导出 |
 | `scripts/conan-install.sh` | Conan 2.x 依赖自动下载安装与 CMake 生成器产物输出脚本 |
 | `scripts/check-clang-format.sh` | 提交前只读检查格式规范（CI 守护） |
 | `scripts/run-clang-format.sh` | 就地批量格式化 `src/` 与 `tests/` 下的所有源码文件 |
 | `build.sh` | 顶层构建脚本，自动探测 Conan 依赖并调用 CMake + Ninja 实现自动化构建 |
 | `run.sh` | 顶层启动脚本，封装了 Linux 平台插件与可执行程序探测 |
+| `test-image/` | 自动化视觉测试截屏存储目录 |
+

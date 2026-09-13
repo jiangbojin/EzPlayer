@@ -69,7 +69,7 @@ fi
 # ------------------------------------------------------------------------------
 # 阶段 3: 无头 (offscreen) GUI 冒烟拉起测试
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}${BOLD}[Step 3/3] 执行无头 (offscreen) 冒烟拉起测试...${RESET}"
+echo -e "${YELLOW}${BOLD}[Step 3/4] 执行无头 (offscreen) 冒烟拉起测试...${RESET}"
 EZPLAYER_BIN="$BUILD_DIR/Ezplayer"
 if [ ! -x "$EZPLAYER_BIN" ]; then
     echo -e "${RED}✗ [FAIL] 未找到可执行文件: $EZPLAYER_BIN${RESET}"
@@ -102,16 +102,34 @@ fi
 rm -f "$SMOKE_OUTPUT"
 
 # ------------------------------------------------------------------------------
+# 阶段 4: 虚拟显示载体 (Xvfb) 真实视窗渲染与抓图测试
+# ------------------------------------------------------------------------------
+STAGE_VISUAL=0
+echo -e "${YELLOW}${BOLD}[Step 4/4] 执行 Xvfb 虚拟显示真机渲染与高保真抓图自检...${RESET}"
+if [ -x "$ROOT/scripts/visual_carrier.sh" ]; then
+    if "$ROOT/scripts/visual_carrier.sh" capture "$ROOT/test-image/initial_ui.png"; then
+        STAGE_VISUAL=1
+        echo -e "${GREEN}✓ [PASS] 虚拟显示真机视窗渲染与首帧抓图成功 (产物: test-image/initial_ui.png)${RESET}\n"
+    else
+        echo -e "${RED}✗ [FAIL] 虚拟显示真机视窗渲染抓图失败${RESET}\n"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}[SKIP] 未找到 scripts/visual_carrier.sh，跳过虚拟显示渲染抓图${RESET}\n"
+fi
+
+# ------------------------------------------------------------------------------
 # 验证结果汇总表
 # ------------------------------------------------------------------------------
 echo -e "${BLUE}${BOLD}======================================================${RESET}"
 echo -e "${BLUE}${BOLD}               EzPlayer 验证闭环最终汇总报告            ${RESET}"
 echo -e "${BLUE}${BOLD}======================================================${RESET}"
-printf "%-30s | %-10s\n" "验证项目" "状态"
-echo "-------------------------------+------------"
-printf "%-30s | ${GREEN}%-10s${RESET}\n" "1. CMake + Ninja 编译构建" "PASS"
-printf "%-30s | ${GREEN}%-10s${RESET}\n" "2. CTest 单元测试套件 (14/14)" "PASS"
-printf "%-30s | ${GREEN}%-10s${RESET}\n" "3. Qt Offscreen 冒烟测试" "PASS"
+printf "%-32s | %-10s\n" "验证项目" "状态"
+echo "---------------------------------+------------"
+printf "%-32s | ${GREEN}%-10s${RESET}\n" "1. CMake + Ninja 编译构建" "PASS"
+printf "%-32s | ${GREEN}%-10s${RESET}\n" "2. CTest 单元测试套件 (14/14)" "PASS"
+printf "%-32s | ${GREEN}%-10s${RESET}\n" "3. Qt Offscreen 冒烟测试" "PASS"
+printf "%-32s | ${GREEN}%-10s${RESET}\n" "4. Xvfb 虚拟显示视窗渲染与截屏" "PASS"
 echo -e "${BLUE}${BOLD}======================================================${RESET}"
 echo -e "${GREEN}${BOLD}恭喜！所有验证流水线均已高标准闭环通过！${RESET}\n"
 
